@@ -144,37 +144,36 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
         />
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
         <div className="flex items-center gap-2">
-          <p className="truncate text-2xl font-bold tracking-tight text-white/90">
+          <p className="truncate text-xl font-bold tracking-tight text-white/90">
             {drink.name}
           </p>
           {atFloor ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-300/10 px-2 py-0.5 text-sm font-bold text-amber-200/90 ring-1 ring-amber-200/20">
+            <span
+              title="Минимальная цена"
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-300/10 text-amber-200/90 ring-1 ring-amber-200/20"
+            >
               <Flame className="size-4" strokeWidth={2.5} />
-              МИНИМУМ
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 text-sm font-semibold uppercase tracking-[0.18em] text-white/35">
-          {formatPrice(drink.min)} — {formatPrice(drink.max)}
-        </p>
-      </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.p
-            key={quote.price}
-            initial={{ opacity: 0, y: quote.price < quote.prev ? -12 : 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: quote.price < quote.prev ? 12 : -12 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="text-3xl font-extrabold tabular-nums tracking-tight text-white"
-          >
-            {formatPrice(quote.price)}
-          </motion.p>
-        </AnimatePresence>
-        <Delta price={quote.price} prev={quote.prev} />
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.p
+              key={quote.price}
+              initial={{ opacity: 0, y: quote.price < quote.prev ? -12 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: quote.price < quote.prev ? 12 : -12 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="whitespace-nowrap text-[1.75rem] font-extrabold leading-none tabular-nums tracking-tight text-white"
+            >
+              {formatPrice(quote.price)}
+            </motion.p>
+          </AnimatePresence>
+          <Delta price={quote.price} prev={quote.prev} />
+        </div>
       </div>
     </div>
   );
