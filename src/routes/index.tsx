@@ -133,14 +133,20 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
 
   return (
     <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-2xl">
-      <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+      <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
         <img
           src={drink.image}
           alt={drink.name}
           loading="lazy"
-          width={512}
-          height={768}
-          className="h-14 w-auto object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]"
+          width={128}
+          height={128}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (target.src !== drink.fallbackImage) {
+              target.src = drink.fallbackImage;
+            }
+          }}
+          className="h-full w-full object-cover drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]"
         />
       </div>
 
@@ -205,18 +211,18 @@ function Ticker({
   const line = [...items, ...items];
 
   return (
-    <div className="relative overflow-hidden border-t border-white/10 bg-white/[0.04] py-3 backdrop-blur-2xl">
+    <div className="relative overflow-hidden border-t border-white/10 bg-white/[0.04] py-5 backdrop-blur-2xl">
       <motion.div
-        className="flex w-max items-center gap-14 whitespace-nowrap"
+        className="flex w-max items-center gap-20 whitespace-nowrap"
         animate={{ x: ["0%", "-50%"] }}
         transition={{ duration: 38, ease: "linear", repeat: Infinity }}
       >
         {line.map((item, i) => (
           <span
             key={`${item.text}-${i}`}
-            className="inline-flex items-center gap-3 text-xl font-bold uppercase tracking-[0.22em] text-white/60"
+            className="inline-flex items-center gap-4 text-3xl font-bold uppercase tracking-[0.22em] text-white/60"
           >
-            <item.icon className="size-5 text-amber-200/80" strokeWidth={2.5} />
+            <item.icon className="size-7 text-amber-200/80" strokeWidth={2.5} />
             {item.text}
           </span>
         ))}
