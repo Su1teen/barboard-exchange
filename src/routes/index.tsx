@@ -7,6 +7,7 @@ import {
   Flame,
   Minus,
   Sparkles,
+  Tag,
   TrendingDown,
   Waves,
 } from "lucide-react";
@@ -103,6 +104,110 @@ function useMarket() {
   }, []);
 
   return { quotes, crashing, secondsToCrash: Math.ceil(msToCrash / 1000) };
+}
+
+// ── Hot-deal hook ─────────────────────────────────────────────────────────────
+const HOT_DEAL_ROTATE_MS = 20000;
+
+type HotDeal = {
+  drink: Drink;
+  ordersLeft: number;
+  price: number;
+};
+
+function pickHotDeal(quotes: Record<string, Quote>): HotDeal {
+  // collect all drinks that are at or very close to their minimum price
+  const candidates = ALL_ITEMS.filter((d) => {
+    const q = quotes[d.id];
+    return q && q.price <= d.min * 1.05;
+  });
+  const pool = candidates.length > 0 ? candidates : ALL_ITEMS;
+  const drink = pool[Math.floor(Math.random() * pool.length)]!;
+  return {
+    drink,
+    ordersLeft: 2 + Math.floor(Math.random() * 4), // 2–5
+    price: quotes[drink.id]?.price ?? drink.min,
+  };
+}
+
+function useHotDeal(quotes: Record<string, Quote>) {
+  const [deal, setDeal] = useState<HotDeal | null>(null);
+  const quotesRef = useRef(quotes);
+
+  useEffect(() => {
+    quotesRef.current = quotes;
+  }, [quotes]);
+
+  useEffect(() => {
+    // slight delay on first mount so prices have ticked at least once
+    const init = setTimeout(() => setDeal(pickHotDeal(quotesRef.current)), 800);
+    const rotate = setInterval(
+      () => setDeal(pickHotDeal(quotesRef.current)),
+      HOT_DEAL_ROTATE_MS,
+    );
+    return () => {
+      clearTimeout(init);
+      clearInterval(rotate);
+    };
+  }, []);
+
+  return deal;
+}
+
+// ── Hot-deal banner component ──────────────────────────────────────────────────
+function HotDealBanner({ deal }: { deal: HotDeal }) {
+  return (
+    <motion.div
+      key={deal.drink.id}
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -16 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="relative z-30 mx-10 mb-4 flex items-center gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-400/10 px-5 py-3 backdrop-blur-2xl"
+    >
+      {/* subtle glow */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_0%_50%,rgba(251,191,36,0.12),transparent_70%)]" />
+
+      {/* drink photo */}
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-amber-200/20">
+        <img
+          src={deal.drink.image}
+          alt={deal.drink.name}
+          loading="lazy"
+          width={112}
+          height={112}
+          onError={(e) => {
+            const t = e.currentTarget;
+            if (t.src !== deal.drink.fallbackImage) t.src = deal.drink.fallbackImage;
+          }}
+          className="h-full w-full object-cover"
+        />
+      </div>
+
+      {/* tag icon */}
+      <Tag className="size-6 shrink-0 text-amber-200/80" strokeWidth={2.5} />
+
+      {/* text block */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="truncate text-lg font-extrabold uppercase tracking-[0.14em] text-amber-100/90">
+          {deal.drink.name}
+        </p>
+        <p className="text-sm font-semibold text-amber-200/60">
+          Минимальная цена вечера
+        </p>
+      </div>
+
+      {/* price */}
+      <p className="shrink-0 text-2xl font-extrabold tabular-nums text-white">
+        {formatPrice(deal.price)}
+      </p>
+
+      {/* orders-left badge */}
+      <span className="shrink-0 rounded-full bg-amber-300/20 px-4 py-1.5 text-base font-extrabold uppercase tracking-[0.12em] text-amber-100 ring-1 ring-amber-300/30">
+        Осталось {deal.ordersLeft} порции
+      </span>
+    </motion.div>
+  );
 }
 
 function Delta({ price, prev }: { price: number; prev: number }) {
@@ -233,6 +338,7 @@ function Ticker({
 
 function Index() {
   const { quotes, crashing, secondsToCrash } = useMarket();
+  const hotDeal = useHotDeal(quotes);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -314,6 +420,13 @@ function Index() {
               ОБВАЛ РЫНКА! ВСЕ ЦЕНЫ СНИЖЕНЫ
             </p>
           </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* Hot-deal banner — hidden during full market crash (all prices already minimum) */}
+      <AnimatePresence>
+        {!crashing && hotDeal ? (
+          <HotDealBanner deal={hotDeal} />
         ) : null}
       </AnimatePresence>
 
