@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Clock,
   Flame,
   Minus,
   Sparkles,
@@ -12,16 +13,16 @@ import {
   Waves,
 } from "lucide-react";
 
-import { ALL_ITEMS, CATEGORIES, formatPrice, type Drink } from "@/lib/market";
+import { ALL_ITEMS, CATEGORIES, formatPrice, roundTo10, type Drink } from "@/lib/market";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/")(  {
   head: () => ({
     meta: [
       { title: "Алкогольная биржа — живые цены бара" },
       {
         name: "description",
         content:
-          "TV-дашборд алкогольной биржи: живые цены на пиво, коктейли, крепкий алкоголь и вино, обвалы рынка и лучшие предложения бара.",
+          "TV-дашборд алкогольной биржи: живые цены на разливные напитки, пиво, крепкий алкоголь и коктейли, обвалы рынка и лучшие предложения бара.",
       },
       { property: "og:title", content: "Алкогольная биржа — живые цены бара" },
       {
@@ -41,10 +42,12 @@ const ROTATE_MS = 15000;
 const CRASH_EVERY_MS = 30000;
 const CRASH_DURATION_MS = 8000;
 
-type Quote = { price: number; prev: number };
+type Quote = { price: number; prev: number; history: number[] };
 
 const initialQuotes = (): Record<string, Quote> =>
-  Object.fromEntries(ALL_ITEMS.map((d) => [d.id, { price: d.base, prev: d.base }]));
+  Object.fromEntries(
+    ALL_ITEMS.map((d) => [d.id, { price: d.base, prev: d.base, history: Array(20).fill(d.base) }])
+  );
 
 function nextPrice(drink: Drink, current: number) {
   const swing = (drink.max - drink.min) * 0.18;
@@ -70,7 +73,9 @@ function useMarket() {
         const next: Record<string, Quote> = {};
         for (const drink of ALL_ITEMS) {
           const cur = prev[drink.id]!.price;
-          next[drink.id] = { price: nextPrice(drink, cur), prev: cur };
+          const hist = prev[drink.id]!.history;
+          const nextPr = nextPrice(drink, cur);
+          next[drink.id] = { price: nextPr, prev: cur, history: [...hist.slice(-19), nextPr] };
         }
         return next;
       });
@@ -90,7 +95,8 @@ function useMarket() {
       setQuotes((prev) => {
         const next: Record<string, Quote> = {};
         for (const drink of ALL_ITEMS) {
-          next[drink.id] = { price: drink.min, prev: prev[drink.id]!.price };
+          const hist = prev[drink.id]!.history;
+          next[drink.id] = { price: drink.min, prev: prev[drink.id]!.price, history: [...hist.slice(-19), drink.min] };
         }
         return next;
       });
@@ -163,7 +169,7 @@ function HotDealBanner({ deal }: { deal: HotDeal }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative z-30 mx-10 mb-4 flex items-center gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-400/10 px-5 py-3 backdrop-blur-2xl"
+      className="relative z-30 mx-10 mb-4 flex items-center gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-400/10 px-5 py-3 backdrop-blur-2xl shadow-[0_0_40px_rgba(251,191,36,0.15)]"
     >
       {/* subtle glow */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_0%_50%,rgba(251,191,36,0.12),transparent_70%)]" />
@@ -203,9 +209,13 @@ function HotDealBanner({ deal }: { deal: HotDeal }) {
       </p>
 
       {/* orders-left badge */}
-      <span className="shrink-0 rounded-full bg-amber-300/20 px-4 py-1.5 text-base font-extrabold uppercase tracking-[0.12em] text-amber-100 ring-1 ring-amber-300/30">
-        Осталось {deal.ordersLeft} порции
-      </span>
+      <div
+        className="shrink-0 flex items-center gap-2 rounded-full bg-amber-300/15 px-4 py-1.5 text-sm font-bold uppercase tracking-[0.08em] text-amber-100 ring-1 ring-amber-300/30 animate-pulse"
+        style={{ animationDuration: "3.5s" }}
+      >
+        <Clock className="size-4 opacity-80" strokeWidth={2} />
+        <span>Осталось {deal.ordersLeft} порции</span>
+      </div>
     </motion.div>
   );
 }
@@ -233,12 +243,93 @@ function Delta({ price, prev }: { price: number; prev: number }) {
   );
 }
 
-function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
-  const atFloor = quote.price <= drink.min * 1.02;
+function Sparkline({ history, diff }: { history: number[]; diff: number }) {
+  if (history.length < 2) return null;
+  const min = Math.min(...history);
+  const max = Math.max(...history);
+  const range = max - min || 1;
+  const width = 200;
+  const height = 50;
+
+  const points = history.map((val, i) => {
+    const x = (i / (history.length - 1)) * width;
+    const y = height - ((val - min) / range) * height;
+    return [x, y];
+  });
+
+  let path = `M ${points[0][0]},${points[0][1]} `;
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i - 1];
+    const p1 = points[i];
+    const cpx1 = p0[0] + (p1[0] - p0[0]) / 2;
+    const cpy1 = p0[1];
+    const cpx2 = p0[0] + (p1[0] - p0[0]) / 2;
+    const cpy2 = p1[1];
+    path += `C ${cpx1},${cpy1} ${cpx2},${cpy2} ${p1[0]},${p1[1]} `;
+  }
+
+  const strokeColor =
+    diff < 0
+      ? "stroke-green-400"
+      : diff > 0
+        ? "stroke-red-400"
+        : "stroke-white/30";
 
   return (
-    <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-2xl">
-      <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+    <div className="pointer-events-none absolute inset-0 z-0 opacity-5">
+      <svg
+        preserveAspectRatio="none"
+        viewBox={`0 -5 ${width} ${height + 10}`}
+        className="h-full w-full"
+      >
+        <path
+          d={path}
+          fill="none"
+          className={strokeColor}
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * DrinkCard — shows original price (strikethrough) and current exchange price
+ * with trend color indication. Price rounded to nearest 10.
+ */
+function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
+  const atFloor = quote.price <= drink.min * 1.02;
+  const diff = quote.price - quote.prev;
+  const pct = quote.prev === 0 ? 0 : (diff / quote.prev) * 100;
+
+  // Compare current exchange price vs original price for trend color of the new price
+  const exchangePrice = roundTo10(quote.price);
+  const originalPrice = roundTo10(drink.originalPrice);
+  const priceDiffFromOriginal = exchangePrice - originalPrice;
+
+  // Determine trend color for the exchange price text
+  let exchangePriceColor = "text-white/60"; // flat
+  if (priceDiffFromOriginal < 0) {
+    exchangePriceColor = "text-emerald-400"; // cheaper = green
+  } else if (priceDiffFromOriginal > 0) {
+    exchangePriceColor = "text-rose-400"; // more expensive = red
+  }
+
+  let cardClass = "border-white/10 bg-white/[0.04]";
+  if (pct < -4) {
+    cardClass = "border-green-500/20 bg-green-500/[0.03] shadow-[0_0_20px_rgba(34,197,94,0.08)]";
+  } else if (pct > 4) {
+    cardClass = "border-red-900/30 bg-black/40 shadow-[0_0_20px_rgba(239,68,68,0.08)]";
+  }
+
+  return (
+    <div
+      className={`relative flex items-center gap-4 overflow-hidden rounded-2xl border px-4 py-3 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
+    >
+      <Sparkline history={quote.history} diff={diff} />
+      <div className="relative z-10 flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
         <img
           src={drink.image}
           alt={drink.name}
@@ -255,7 +346,7 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
         />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center">
         <div className="flex items-center gap-2">
           <p className="truncate text-xl font-bold tracking-tight text-white/90">
             {drink.name}
@@ -270,19 +361,27 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
           ) : null}
         </div>
 
+        {/* Price block: original (strikethrough) + exchange price with trend color */}
         <div className="mt-1 flex items-center justify-between gap-3">
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.p
-              key={quote.price}
-              initial={{ opacity: 0, y: quote.price < quote.prev ? -12 : 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: quote.price < quote.prev ? 12 : -12 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="whitespace-nowrap text-[1.75rem] font-extrabold leading-none tabular-nums tracking-tight text-white"
-            >
-              {formatPrice(quote.price)}
-            </motion.p>
-          </AnimatePresence>
+          <div className="flex flex-col">
+            {/* Original price - strikethrough */}
+            <span className="text-lg font-semibold tabular-nums text-white/30 line-through decoration-white/20">
+              {formatPrice(drink.originalPrice)}
+            </span>
+            {/* Exchange price - colored by trend */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={exchangePrice}
+                initial={{ opacity: 0, y: exchangePrice < roundTo10(quote.prev) ? -8 : 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: exchangePrice < roundTo10(quote.prev) ? 8 : -8 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className={`text-[1.75rem] font-extrabold leading-none tabular-nums tracking-tight ${exchangePriceColor}`}
+              >
+                {formatPrice(quote.price)}
+              </motion.span>
+            </AnimatePresence>
+          </div>
           <Delta price={quote.price} prev={quote.prev} />
         </div>
       </div>
@@ -299,16 +398,31 @@ function Ticker({
 }) {
   const items = useMemo(
     () => [
-      { icon: Flame, text: "ОСТАЛОСЬ 5 ПОРЦИЙ HEINEKEN ПО МИНИМУМУ" },
+      { icon: Flame, content: "ОСТАЛОСЬ 5 ПОРЦИЙ MILLER ПО МИНИМУМУ" },
       {
         icon: Waves,
-        text: crashing
-          ? "ОБВАЛ РЫНКА ИДЁТ ПРЯМО СЕЙЧАС — БЕРИТЕ, ПОКА ДЁШЕВО"
-          : `ОБВАЛ РЫНКА ЧЕРЕЗ ${secondsToCrash} СЕК.`,
+        content: crashing ? (
+          "ОБВАЛ РЫНКА ИДЁТ ПРЯМО СЕЙЧАС — БЕРИТЕ, ПОКА ДЁШЕВО"
+        ) : (
+          <>
+            ОБВАЛ РЫНКА ЧЕРЕЗ{" "}
+            <motion.span
+              key={secondsToCrash}
+              animate={secondsToCrash <= 5 ? { scale: [1.05, 1] } : { scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className={`inline-block font-mono tabular-nums transition-colors duration-500 ${
+                secondsToCrash <= 10 ? "text-amber-400" : "text-white/40"
+              }`}
+            >
+              {secondsToCrash}
+            </motion.span>{" "}
+            СЕК.
+          </>
+        ),
       },
-      { icon: ArrowUpRight, text: "WHISKEY SOUR БЬЁТ РЕКОРДЫ ПРОДАЖ" },
-      { icon: TrendingDown, text: "MOJITO УПАЛ НА 14% ЗА ПОСЛЕДНИЕ 10 МИНУТ" },
-      { icon: Sparkles, text: "MACALLAN 12 — ЛОТ ВЕЧЕРА НА БАРНОЙ БИРЖЕ" },
+      { icon: ArrowUpRight, content: "REDBULL + VODKA БЬЁТ РЕКОРДЫ ПРОДАЖ" },
+      { icon: TrendingDown, content: "MOJITO УПАЛ НА 14% ЗА ПОСЛЕДНИЕ 10 МИНУТ" },
+      { icon: Sparkles, content: "CHIVAS REGAL — ЛОТ ВЕЧЕРА НА БАРНОЙ БИРЖЕ" },
     ],
     [crashing, secondsToCrash],
   );
@@ -324,16 +438,25 @@ function Ticker({
       >
         {line.map((item, i) => (
           <span
-            key={`${item.text}-${i}`}
-            className="inline-flex items-center gap-4 text-3xl font-bold uppercase tracking-[0.22em] text-white/60"
+            key={i}
+            className="inline-flex items-center gap-4 text-3xl font-bold uppercase tracking-[0.22em] text-white/40"
           >
-            <item.icon className="size-7 text-amber-200/80" strokeWidth={2.5} />
-            {item.text}
+            <item.icon className="size-7 text-amber-200/50" strokeWidth={2.5} />
+            {item.content}
           </span>
         ))}
       </motion.div>
     </div>
   );
+}
+
+/** Compute grid classes based on item count */
+function gridClasses(itemCount: number): string {
+  if (itemCount <= 2) return "grid-cols-2 grid-rows-1";
+  if (itemCount <= 4) return "grid-cols-2 grid-rows-2";
+  if (itemCount <= 6) return "grid-cols-3 grid-rows-2";
+  if (itemCount <= 9) return "grid-cols-3 grid-rows-3";
+  return "grid-cols-3 grid-rows-4";
 }
 
 function Index() {
@@ -449,7 +572,7 @@ function Index() {
               </p>
             </div>
 
-            <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-4 gap-3">
+            <div className={`grid min-h-0 flex-1 gap-3 ${gridClasses(category.items.length)}`}>
               {category.items.slice(0, 12).map((drink) => (
                 <DrinkCard key={drink.id} drink={drink} quote={quotes[drink.id]!} />
               ))}

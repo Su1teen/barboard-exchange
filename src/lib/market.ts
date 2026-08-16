@@ -7,6 +7,7 @@ export type Drink = {
   id: string;
   name: string;
   base: number;
+  originalPrice: number;
   min: number;
   max: number;
   image: string;
@@ -22,83 +23,63 @@ export type Category = {
 
 /**
  * Per-drink image dictionary.
- * Every entry maps a drink ID to a distinct Wikimedia Commons product photo
- * so each row in the grid shows a unique, recognisable image.
+ * Every entry maps a drink ID to a distinct product photo URL.
  */
 const DRINK_IMAGES: Record<string, string> = {
-  // ── Beer ──────────────────────────────────────────────
-  b1: "https://commons.wikimedia.org/wiki/Special:FilePath/Heineken_Bottle.jpg",
-  b2: "https://commons.wikimedia.org/wiki/Special:FilePath/GuinnessPint.JPG",
-  b3: "https://commons.wikimedia.org/wiki/Special:FilePath/Paulaner_Hefe-Weissbier.JPG",
-  b4: "https://commons.wikimedia.org/wiki/Special:FilePath/Corona_Extra_beer_bottle_(2019).png",
-  b5: "https://commons.wikimedia.org/wiki/Special:FilePath/Hoegaarden_bottle.JPG",
-  b6: "https://commons.wikimedia.org/wiki/Special:FilePath/Stella_Artois_bottle.jpg",
-  b7: "https://commons.wikimedia.org/wiki/Special:FilePath/Leffe_blonde.jpg",
-  b8: "https://commons.wikimedia.org/wiki/Special:FilePath/Velkopopovick%C3%BD_kozel_%C4%8Dern%C3%BD_(Beer-_czech_republic).jpg",
-  b9: "https://commons.wikimedia.org/wiki/Special:FilePath/Erdinger-bottle-glass_RMO.jpg",
-  b10: "https://commons.wikimedia.org/wiki/Special:FilePath/Pilsner_Urquell_330mL_Bottle.jpg",
-  b11: "https://commons.wikimedia.org/wiki/Special:FilePath/Texas_edition_Bud_Light.png",
-  b12: "https://commons.wikimedia.org/wiki/Special:FilePath/Krombacher_Pils.JPG",
+  // ── Разливные напитки ──────────────────────────────────
+  d1: "https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&h=400&fit=crop", // Разливное пиво немецкое
+  d2: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop", // Miller разливное
+  d3: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Beefeater_gin.jpg/220px-Beefeater_gin.jpg", // Beefeater
+  d4: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Jagermeister_bottle.jpg/200px-Jagermeister_bottle.jpg", // Jägermeister
+  d5: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=400&h=400&fit=crop", // Orchard (сидр)
+  d6: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Bacardi_Logo.svg/200px-Bacardi_Logo.svg.png", // Bacardi
+  d7: "https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&h=400&fit=crop", // Ballantine's
+  d8: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Jameson_Irish_Whiskey.JPG/220px-Jameson_Irish_Whiskey.JPG", // Jameson
+  d9: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Chivas_regal_12yo.jpg/200px-Chivas_regal_12yo.jpg", // Chivas Regal
+  d10: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Monkey_Shoulder_scotch_bottle.jpg/200px-Monkey_Shoulder_scotch_bottle.jpg", // Monkey Shoulder
+  d11: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Absolut_Vodka_-_Original.jpg/200px-Absolut_Vodka_-_Original.jpg", // Absolut
+  d12: "https://images.unsplash.com/photo-1613063029958-6efb1a6c5e91?w=400&h=400&fit=crop", // Nemiroff
 
-  // ── Cocktails ─────────────────────────────────────────
-  c1: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Whiskey_Sour.jpg/440px-Whiskey_Sour.jpg",
-  c2: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Negroni_at_Nightwood_Restaurant.jpg/440px-Negroni_at_Nightwood_Restaurant.jpg",
-  c3: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Whisky_Old_Fashioned1.jpg/440px-Whisky_Old_Fashioned1.jpg",
-  c4: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Aperol_Spritz_%2835146498094%29.jpg/440px-Aperol_Spritz_%2835146498094%29.jpg",
-  c5: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/MargaritaReal.jpg/440px-MargaritaReal.jpg",
-  c6: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Espresso_Martini.jpg/440px-Espresso_Martini.jpg",
-  c7: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Mojito98.jpg/440px-Mojito98.jpg",
-  c8: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Classic_Daiquiri_in_Cocktail_Glass.jpg/440px-Classic_Daiquiri_in_Cocktail_Glass.jpg",
-  c9: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Cosmopolitan_%285076906532%29.jpg/440px-Cosmopolitan_%285076906532%29.jpg",
-  c10: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Manhattan_Cocktail2.jpg/440px-Manhattan_Cocktail2.jpg",
-  c11: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Gin_and_Tonic_with_ingredients.jpg/440px-Gin_and_Tonic_with_ingredients.jpg",
-  c12: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Moscow_Mule_at_Rye%2C_San_Francisco.jpg/440px-Moscow_Mule_at_Rye%2C_San_Francisco.jpg",
+  // ── Крепкий алкоголь (водка/настойки) ──────────────────
+  s1: "https://images.unsplash.com/photo-1607622750671-6cd9a99eabd1?w=400&h=400&fit=crop", // Хортица Айс
+  s2: "https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop", // Кызылжар
 
-  // ── Spirits ───────────────────────────────────────────
-  s1: "https://commons.wikimedia.org/wiki/Special:FilePath/Jameson_Irish_Whiskey.JPG",
-  s2: "https://commons.wikimedia.org/wiki/Special:FilePath/Chivas_regal_12yo.jpg",
-  s3: "https://commons.wikimedia.org/wiki/Special:FilePath/Jack_daniels_bottle.jpg",
-  s4: "https://commons.wikimedia.org/wiki/Special:FilePath/The_Macallan_12_yo_new.png",
-  s5: "https://commons.wikimedia.org/wiki/Special:FilePath/2023_Hennessy_V.S._Cognac.jpg",
-  s6: "https://commons.wikimedia.org/wiki/Special:FilePath/Bottle_of_Glenfiddich_12yo.jpg",
-  s7: "https://commons.wikimedia.org/wiki/Special:FilePath/Bombay_sapphire_bottle.jpg",
-  s8: "https://commons.wikimedia.org/wiki/Special:FilePath/Caviar_et_Vodka_Beluga_002.jpg",
-  s9: "https://commons.wikimedia.org/wiki/Special:FilePath/Bacardi_rum_bottle.jpg",
-  s10: "https://commons.wikimedia.org/wiki/Special:FilePath/Tequila_Silver,_Reposado,_and_Anejo.jpg",
-  s11: "https://commons.wikimedia.org/wiki/Special:FilePath/Monkey_Shoulder_scotch_bottle.jpg",
-  s12: "https://commons.wikimedia.org/wiki/Special:FilePath/Jagermeister_1l_bottle.jpg",
+  // ── Бутылочное пиво ────────────────────────────────────
+  b1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Miller_Lite_six_pack.jpg/250px-Miller_Lite_six_pack.jpg", // Miller
+  b2: "https://images.unsplash.com/photo-1618885472179-5e474019f2a9?w=400&h=400&fit=crop", // Bud
+  b3: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Corona_Extra_beer_bottle_%282019%29.png/150px-Corona_Extra_beer_bottle_%282019%29.png", // Corona Extra
+  b4: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Paulaner_Hefe-Weissbier.JPG/200px-Paulaner_Hefe-Weissbier.JPG", // Paulaner
+  b5: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Tsingtao_Beer.JPG/200px-Tsingtao_Beer.JPG", // Tsingtao
+  b6: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Hoegaarden_bottle.JPG/200px-Hoegaarden_bottle.JPG", // Hoegaarden
 
-  // ── Wine ──────────────────────────────────────────────
-  w1: "https://commons.wikimedia.org/wiki/Special:FilePath/Chablis_bottle_and_wine.jpg",
-  w2: "https://upload.wikimedia.org/wikipedia/commons/a/ab/Pinot_Noir_being_poured_into_a_wine_glass.jpg",
-  w3: "https://commons.wikimedia.org/wiki/Special:FilePath/Alexander_Valley_California_Cabernet_Sauvignon.jpg",
-  w4: "https://commons.wikimedia.org/wiki/Special:FilePath/2015_Smith_Story_Pickberry_Merlot_-_Sarah_Stierch.jpg",
-  w5: "https://commons.wikimedia.org/wiki/Special:FilePath/Wine_bottles_of_Sauvignon_Blanc.jpg",
-  w6: "https://commons.wikimedia.org/wiki/Special:FilePath/Bottles_of_Rioja_Wine.jpg",
-  w7: "https://commons.wikimedia.org/wiki/Special:FilePath/A_bottle_of_Prosecco.jpg",
-  w8: "https://commons.wikimedia.org/wiki/Special:FilePath/Banfi_Chianti_Classico_2005.jpg",
-  w9: "https://commons.wikimedia.org/wiki/Special:FilePath/Argentine_Malbec.jpg",
-  w10: "https://commons.wikimedia.org/wiki/Special:FilePath/Alsace_Riesling_2007.jpg",
-  w11: "https://commons.wikimedia.org/wiki/Special:FilePath/Amphore_C%C3%B4tes_de_Provence_ros%C3%A9.JPG",
-  w12: "https://commons.wikimedia.org/wiki/Special:FilePath/Champagne_bottle%2C_2015-%2801%29.jpg",
+  // ── Коктейли ───────────────────────────────────────────
+  c1: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop", // Redbull Vodka
+  c2: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&h=400&fit=crop", // Redbull Jäger
+  c3: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=400&h=400&fit=crop", // Redbull Whisky
+  c4: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Gin_and_Tonic_with_ingredients.jpg/440px-Gin_and_Tonic_with_ingredients.jpg", // Gin Tonic
+  c5: "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=400&h=400&fit=crop", // Long Island
+  c6: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Whiskey_Sour.jpg/440px-Whiskey_Sour.jpg", // Whisky Sour
+  c7: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Mojito98.jpg/440px-Mojito98.jpg", // Mojito
 };
 
 /** Fallback local asset keyed by category prefix letter */
 const FALLBACK_BY_PREFIX: Record<string, string> = {
+  d: whiskeyImg,
+  s: whiskeyImg,
   b: beerImg,
   c: cocktailImg,
-  s: whiskeyImg,
-  w: wineImg,
 };
 
 const make = (
   id: string,
   name: string,
+  originalPrice: number,
   base: number,
   spread = 0.22,
 ): Drink => ({
   id,
   name,
+  originalPrice,
   base,
   min: Math.round(base * (1 - spread)),
   max: Math.round(base * (1 + spread)),
@@ -108,22 +89,44 @@ const make = (
 
 export const CATEGORIES: Category[] = [
   {
-    id: "beer",
-    title: "Пиво",
-    subtitle: "Draft & Bottled",
+    id: "draft",
+    title: "Разливные напитки",
+    subtitle: "Draft & Spirits",
     items: [
-      make("b1", "Heineken", 1900),
-      make("b2", "Guinness Draught", 2400),
-      make("b3", "Paulaner Weissbier", 2200),
-      make("b4", "Corona Extra", 2100),
-      make("b5", "Hoegaarden", 2000),
-      make("b6", "Stella Artois", 1800),
-      make("b7", "Leffe Blonde", 2300),
-      make("b8", "Kozel Dark", 1600),
-      make("b9", "Erdinger", 2500),
-      make("b10", "Pilsner Urquell", 1700),
-      make("b11", "Bud Light", 1400),
-      make("b12", "Krombacher", 2050),
+      make("d1", "Немецкое разливное", 1800, 1500),
+      make("d2", "Miller разливное", 1500, 1300),
+      make("d3", "Beefeater Gin", 2800, 2500),
+      make("d4", "Jägermeister", 2500, 2200),
+      make("d5", "Orchard", 2000, 1700),
+      make("d6", "Bacardi", 2600, 2300),
+      make("d7", "Ballantine's", 2400, 2100),
+      make("d8", "Jameson", 3000, 2700),
+      make("d9", "Chivas Regal", 4500, 4000),
+      make("d10", "Monkey Shoulder", 4200, 3700),
+      make("d11", "Absolut", 2200, 1900),
+      make("d12", "Nemiroff", 1800, 1500),
+    ],
+  },
+  {
+    id: "spirits",
+    title: "Крепкий алкоголь",
+    subtitle: "Vodka & Spirits",
+    items: [
+      make("s1", "Хортица Айс", 1600, 1400),
+      make("s2", "Кызылжар", 1400, 1200),
+    ],
+  },
+  {
+    id: "beer",
+    title: "Бутылочное пиво",
+    subtitle: "Bottled Beer",
+    items: [
+      make("b1", "Miller", 1200, 1000),
+      make("b2", "Bud", 1200, 1050),
+      make("b3", "Corona Extra", 1800, 1600),
+      make("b4", "Paulaner", 2000, 1800),
+      make("b5", "Tsingtao", 1500, 1300),
+      make("b6", "Hoegaarden", 1800, 1600),
     ],
   },
   {
@@ -131,61 +134,22 @@ export const CATEGORIES: Category[] = [
     title: "Коктейли",
     subtitle: "Signature Bar",
     items: [
-      make("c1", "Whiskey Sour", 3200),
-      make("c2", "Negroni", 3400),
-      make("c3", "Old Fashioned", 3600),
-      make("c4", "Aperol Spritz", 3000),
-      make("c5", "Margarita", 3100),
-      make("c6", "Espresso Martini", 3500),
-      make("c7", "Mojito", 2800),
-      make("c8", "Daiquiri", 2900),
-      make("c9", "Cosmopolitan", 3050),
-      make("c10", "Manhattan", 3700),
-      make("c11", "Gin Tonic", 2600),
-      make("c12", "Moscow Mule", 2950),
-    ],
-  },
-  {
-    id: "spirits",
-    title: "Крепкий алкоголь",
-    subtitle: "Whiskey & Rare Spirits",
-    items: [
-      make("s1", "Jameson", 2700),
-      make("s2", "Chivas Regal 12", 4200),
-      make("s3", "Jack Daniel's", 3100),
-      make("s4", "Macallan 12", 8600),
-      make("s5", "Hennessy VS", 5200),
-      make("s6", "Glenfiddich 12", 5600),
-      make("s7", "Bombay Sapphire", 2500),
-      make("s8", "Beluga Noble", 3300),
-      make("s9", "Bacardi Carta", 2400),
-      make("s10", "Patrón Silver", 6100),
-      make("s11", "Monkey Shoulder", 3900),
-      make("s12", "Jägermeister", 2200),
-    ],
-  },
-  {
-    id: "wine",
-    title: "Вино",
-    subtitle: "Cellar Selection",
-    items: [
-      make("w1", "Chardonnay", 2900),
-      make("w2", "Pinot Noir", 3600),
-      make("w3", "Cabernet Sauvignon", 3800),
-      make("w4", "Merlot", 3200),
-      make("w5", "Sauvignon Blanc", 3000),
-      make("w6", "Rioja Reserva", 4400),
-      make("w7", "Prosecco", 3400),
-      make("w8", "Chianti Classico", 4100),
-      make("w9", "Malbec", 3300),
-      make("w10", "Riesling", 2800),
-      make("w11", "Rosé de Provence", 3500),
-      make("w12", "Champagne Brut", 7800),
+      make("c1", "Redbull + Vodka", 2800, 2500),
+      make("c2", "Redbull + Jäger", 3000, 2700),
+      make("c3", "Redbull + Whisky", 3200, 2900),
+      make("c4", "Gin Tonic", 2500, 2200),
+      make("c5", "Long Island", 3500, 3100),
+      make("c6", "Whisky Sour", 3000, 2700),
+      make("c7", "Mojito", 2800, 2500),
     ],
   },
 ];
 
 export const ALL_ITEMS = CATEGORIES.flatMap((c) => c.items);
 
+/** Round to nearest 10 */
+export const roundTo10 = (value: number): number =>
+  Math.round(value / 10) * 10;
+
 export const formatPrice = (value: number) =>
-  `${Math.round(value).toLocaleString("ru-RU").replace(/\u00A0/g, " ")} ₸`;
+  `${roundTo10(value).toLocaleString("ru-RU").replace(/\u00A0/g, " ")} ₸`;
