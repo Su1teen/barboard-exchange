@@ -38,7 +38,8 @@ export const Route = createFileRoute("/")(  {
 });
 
 const TICK_MS = 4000;
-const ROTATE_MS = 15000;
+const PAGE_MS = 5000;
+const PAGE_SIZE = 4;
 const CRASH_EVERY_MS = 30000;
 const CRASH_DURATION_MS = 8000;
 
@@ -169,13 +170,13 @@ function HotDealBanner({ deal }: { deal: HotDeal }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative z-30 mx-10 mb-4 flex items-center gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-400/10 px-5 py-3 backdrop-blur-2xl shadow-[0_0_40px_rgba(251,191,36,0.15)]"
+      className="relative z-30 mx-10 mb-2 flex items-center gap-4 overflow-hidden rounded-xl border border-amber-300/25 bg-amber-400/10 px-4 py-2 backdrop-blur-2xl shadow-[0_0_40px_rgba(251,191,36,0.15)]"
     >
       {/* subtle glow */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_0%_50%,rgba(251,191,36,0.12),transparent_70%)]" />
 
       {/* drink photo */}
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-amber-200/20">
+      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/[0.06] ring-1 ring-amber-200/20">
         <img
           src={deal.drink.image}
           alt={deal.drink.name}
@@ -195,22 +196,22 @@ function HotDealBanner({ deal }: { deal: HotDeal }) {
 
       {/* text block */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="truncate text-lg font-extrabold uppercase tracking-[0.14em] text-amber-100/90">
+        <p className="truncate text-base font-extrabold uppercase tracking-[0.14em] text-amber-100/90">
           {deal.drink.name}
         </p>
-        <p className="text-sm font-semibold text-amber-200/60">
+        <p className="text-xs font-semibold text-amber-200/60">
           Минимальная цена вечера
         </p>
       </div>
 
       {/* price */}
-      <p className="shrink-0 text-2xl font-extrabold tabular-nums text-white">
+      <p className="shrink-0 text-xl font-extrabold tabular-nums text-white">
         {formatPrice(deal.price)}
       </p>
 
       {/* orders-left badge */}
       <div
-        className="shrink-0 flex items-center gap-2 rounded-full bg-amber-300/15 px-4 py-1.5 text-sm font-bold uppercase tracking-[0.08em] text-amber-100 ring-1 ring-amber-300/30 animate-pulse"
+        className="shrink-0 flex items-center gap-1.5 rounded-full bg-amber-300/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-amber-100 ring-1 ring-amber-300/30 animate-pulse"
         style={{ animationDuration: "3.5s" }}
       >
         <Clock className="size-4 opacity-80" strokeWidth={2} />
@@ -326,10 +327,10 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
 
   return (
     <div
-      className={`relative flex items-center gap-4 overflow-hidden rounded-2xl border px-4 py-3 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
+      className={`relative flex items-center gap-5 overflow-hidden rounded-2xl border px-5 py-4 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
     >
       <Sparkline history={quote.history} diff={diff} />
-      <div className="relative z-10 flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+      <div className="relative z-10 flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
         <img
           src={drink.image}
           alt={drink.name}
@@ -348,7 +349,7 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center">
         <div className="flex items-center gap-2">
-          <p className="truncate text-xl font-bold tracking-tight text-white/90">
+          <p className="truncate text-2xl font-bold tracking-tight text-white/90">
             {drink.name}
           </p>
           {atFloor ? (
@@ -376,7 +377,7 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: exchangePrice < roundTo10(quote.prev) ? 8 : -8 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className={`text-2xl font-bold leading-none tabular-nums tracking-tight ${exchangePriceColor}`}
+                className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${exchangePriceColor}`}
               >
                 {formatPrice(quote.price)}
               </motion.span>
@@ -430,18 +431,18 @@ function Ticker({
   const line = [...items, ...items];
 
   return (
-    <div className="relative overflow-hidden border-t border-white/10 bg-white/[0.04] py-5 backdrop-blur-2xl">
+    <div className="relative overflow-hidden border-t border-white/10 bg-white/[0.04] py-2.5 backdrop-blur-2xl">
       <motion.div
-        className="flex w-max items-center gap-20 whitespace-nowrap"
+        className="flex w-max items-center gap-12 whitespace-nowrap"
         animate={{ x: ["0%", "-50%"] }}
         transition={{ duration: 38, ease: "linear", repeat: Infinity }}
       >
         {line.map((item, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-4 text-3xl font-bold uppercase tracking-[0.22em] text-white/40"
+            className="inline-flex items-center gap-3 text-lg font-bold uppercase tracking-[0.18em] text-white/40"
           >
-            <item.icon className="size-7 text-amber-200/50" strokeWidth={2.5} />
+            <item.icon className="size-5 text-amber-200/50" strokeWidth={2.5} />
             {item.content}
           </span>
         ))}
@@ -450,26 +451,41 @@ function Ticker({
   );
 }
 
-/** Compute grid classes based on item count */
-function gridClasses(itemCount: number): string {
-  if (itemCount <= 2) return "grid-cols-2 grid-rows-1";
-  if (itemCount <= 4) return "grid-cols-2 grid-rows-2";
-  if (itemCount <= 6) return "grid-cols-3 grid-rows-2";
-  if (itemCount <= 9) return "grid-cols-3 grid-rows-3";
-  return "grid-cols-3 grid-rows-4";
+/** Always display a 2×2 grid optimized for TV */
+function gridClasses(): string {
+  return "grid-cols-2 grid-rows-2";
 }
 
 function Index() {
   const { quotes, crashing, secondsToCrash } = useMarket();
   const hotDeal = useHotDeal(quotes);
-  const [index, setIndex] = useState(0);
+  const [sectionIndex, setSectionIndex] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+  const sectionRef = useRef(sectionIndex);
 
   useEffect(() => {
-    const id = setInterval(() => setIndex((i) => (i + 1) % CATEGORIES.length), ROTATE_MS);
+    sectionRef.current = sectionIndex;
+  }, [sectionIndex]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPageIndex((prev) => {
+        const cat = CATEGORIES[sectionRef.current]!;
+        const totalPages = Math.ceil(cat.items.length / PAGE_SIZE);
+        const next = prev + 1;
+        if (next >= totalPages) {
+          setSectionIndex((si) => (si + 1) % CATEGORIES.length);
+          return 0;
+        }
+        return next;
+      });
+    }, PAGE_MS);
     return () => clearInterval(id);
   }, []);
 
-  const category = CATEGORIES[index]!;
+  const category = CATEGORIES[sectionIndex]!;
+  const totalPages = Math.ceil(category.items.length / PAGE_SIZE);
+  const visibleItems = category.items.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE);
   const [clock, setClock] = useState("");
   useEffect(() => {
     const update = () =>
@@ -500,22 +516,22 @@ function Index() {
         ) : null}
       </AnimatePresence>
 
-      <header className="relative z-30 flex items-center justify-between px-10 pt-8 pb-5">
+      <header className="relative z-30 flex items-center justify-between px-10 pt-4 pb-3">
         <div className="flex items-baseline gap-5">
-          <h1 className="text-4xl font-extrabold tracking-tight">
+          <h1 className="text-3xl font-extrabold tracking-tight">
             XOXO <span className="text-white/45">Exchange</span>
           </h1>
-          <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1 text-sm font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
+          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-0.5 text-xs font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
             Live
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {CATEGORIES.map((c, i) => (
             <span
               key={c.id}
-              className={`rounded-full border px-4 py-1.5 text-base font-bold tracking-wide transition-colors duration-500 ${
-                i === index
+              className={`rounded-full border px-3 py-1 text-sm font-bold tracking-wide transition-colors duration-500 ${
+                i === sectionIndex
                   ? "border-white/20 bg-white/[0.10] text-white/90"
                   : "border-white/5 bg-white/[0.03] text-white/30"
               }`}
@@ -523,7 +539,7 @@ function Index() {
               {c.title}
             </span>
           ))}
-          <span className="ml-4 text-2xl font-extrabold tabular-nums text-white/70">
+          <span className="ml-3 text-xl font-extrabold tabular-nums text-white/70">
             {clock}
           </span>
         </div>
@@ -536,10 +552,10 @@ function Index() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-30 mx-10 mb-4 flex items-center justify-center gap-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 py-4 backdrop-blur-2xl"
+            className="relative z-30 mx-10 mb-2 flex items-center justify-center gap-3 rounded-xl border border-rose-300/20 bg-rose-400/10 py-2.5 backdrop-blur-2xl"
           >
-            <TrendingDown className="size-8 text-rose-200/90" strokeWidth={2.5} />
-            <p className="text-3xl font-extrabold tracking-[0.06em] text-rose-100/95">
+            <TrendingDown className="size-6 text-rose-200/90" strokeWidth={2.5} />
+            <p className="text-xl font-extrabold tracking-[0.06em] text-rose-100/95">
               ОБВАЛ РЫНКА! ВСЕ ЦЕНЫ СНИЖЕНЫ
             </p>
           </motion.div>
@@ -553,27 +569,41 @@ function Index() {
         ) : null}
       </AnimatePresence>
 
-      <section className="relative z-10 min-h-0 flex-1 px-10 pb-6">
+      <section className="relative z-10 min-h-0 flex-1 px-10 pb-4">
         <AnimatePresence mode="wait">
           <motion.div
-            key={category.id}
+            key={`${category.id}-${pageIndex}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.7, ease: "easeInOut" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
             className="flex h-full flex-col"
           >
-            <div className="mb-4 flex items-baseline gap-4">
-              <h2 className="text-3xl font-extrabold tracking-tight text-white/90">
+            <div className="mb-3 flex items-center gap-4">
+              <h2 className="text-2xl font-extrabold tracking-tight text-white/90">
                 {category.title}
               </h2>
-              <p className="text-base font-semibold uppercase tracking-[0.24em] text-white/30">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/30">
                 {category.subtitle}
               </p>
+              {totalPages > 1 && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <span
+                      key={i}
+                      className={`block size-2 rounded-full transition-all duration-500 ${
+                        i === pageIndex
+                          ? "bg-white/70 scale-125"
+                          : "bg-white/20"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className={`grid min-h-0 flex-1 gap-3 ${gridClasses(category.items.length)}`}>
-              {category.items.slice(0, 12).map((drink) => (
+            <div className={`grid min-h-0 flex-1 gap-4 ${gridClasses()}`}>
+              {visibleItems.map((drink) => (
                 <DrinkCard key={drink.id} drink={drink} quote={quotes[drink.id]!} />
               ))}
             </div>
