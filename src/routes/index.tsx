@@ -18,13 +18,13 @@ import { ALL_ITEMS, CATEGORIES, formatPrice, roundTo10, type Drink } from "@/lib
 export const Route = createFileRoute("/")(  {
   head: () => ({
     meta: [
-      { title: "Алкогольная биржа — живые цены бара" },
+      { title: "XOXO Exchange — живые цены бара" },
       {
         name: "description",
         content:
           "TV-дашборд алкогольной биржи: живые цены на разливные напитки, пиво, крепкий алкоголь и коктейли, обвалы рынка и лучшие предложения бара.",
       },
-      { property: "og:title", content: "Алкогольная биржа — живые цены бара" },
+      { property: "og:title", content: "XOXO Exchange — живые цены бара" },
       {
         property: "og:description",
         content:
@@ -362,10 +362,10 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
         </div>
 
         {/* Price block: original (strikethrough) + exchange price with trend color */}
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <div className="flex flex-col">
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-baseline gap-4">
             {/* Original price - strikethrough */}
-            <span className="text-lg font-semibold tabular-nums text-white/30 line-through decoration-white/20">
+            <span className="text-3xl font-black tabular-nums text-white/80 line-through decoration-red-500/70 decoration-[3px]">
               {formatPrice(drink.originalPrice)}
             </span>
             {/* Exchange price - colored by trend */}
@@ -376,7 +376,7 @@ function DrinkCard({ drink, quote }: { drink: Drink; quote: Quote }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: exchangePrice < roundTo10(quote.prev) ? 8 : -8 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className={`text-[1.75rem] font-extrabold leading-none tabular-nums tracking-tight ${exchangePriceColor}`}
+                className={`text-2xl font-bold leading-none tabular-nums tracking-tight ${exchangePriceColor}`}
               >
                 {formatPrice(quote.price)}
               </motion.span>
@@ -503,7 +503,7 @@ function Index() {
       <header className="relative z-30 flex items-center justify-between px-10 pt-8 pb-5">
         <div className="flex items-baseline gap-5">
           <h1 className="text-4xl font-extrabold tracking-tight">
-            Алкогольная <span className="text-white/45">биржа</span>
+            XOXO <span className="text-white/45">Exchange</span>
           </h1>
           <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1 text-sm font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
             Live

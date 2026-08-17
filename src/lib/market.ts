@@ -3,6 +3,24 @@ import cocktailImg from "@/assets/cocktail.png";
 import whiskeyImg from "@/assets/whiskey.png";
 import wineImg from "@/assets/wine.png";
 
+import absolutImg from "@/assets/images/absolut.jpeg";
+import bacardiImg from "@/assets/images/bacardi.jpeg";
+import ballantinesImg from "@/assets/images/ballatines.webp";
+import beefeaterImg from "@/assets/images/beefeater.jpg";
+import budsImg from "@/assets/images/buds.jpg";
+import chivasImg from "@/assets/images/chivas.jpg";
+import coronaImg from "@/assets/images/corona extra.jpeg";
+import germanImg from "@/assets/images/german.jpg";
+import hoegaardenImg from "@/assets/images/hoegaarden.jpg";
+import jagermeisterImg from "@/assets/images/jagermeister.jpg";
+import jamesonImg from "@/assets/images/jameson.jpg";
+import millerImg from "@/assets/images/miller.jpeg";
+import monkeyshoulderImg from "@/assets/images/monkeyshoulder.jpg";
+import nemiroffImg from "@/assets/images/nemoriff.jpg";
+import okheartImg from "@/assets/images/okheart.jpg";
+import redbullvodkaImg from "@/assets/images/rebullvodka.jpg";
+import tsingtaoImg from "@/assets/images/tsintao.jpg";
+
 export type Drink = {
   id: string;
   name: string;
@@ -21,39 +39,31 @@ export type Category = {
   items: Drink[];
 };
 
-/**
- * Per-drink image dictionary.
- * Every entry maps a drink ID to a distinct product photo URL.
- */
 const DRINK_IMAGES: Record<string, string> = {
-  // ── Разливные напитки ──────────────────────────────────
-  d1: "https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&h=400&fit=crop", // Разливное пиво немецкое
-  d2: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop", // Miller разливное
-  d3: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Beefeater_gin.jpg/220px-Beefeater_gin.jpg", // Beefeater
-  d4: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Jagermeister_bottle.jpg/200px-Jagermeister_bottle.jpg", // Jägermeister
-  d5: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=400&h=400&fit=crop", // Orchard (сидр)
-  d6: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Bacardi_Logo.svg/200px-Bacardi_Logo.svg.png", // Bacardi
-  d7: "https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&h=400&fit=crop", // Ballantine's
-  d8: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Jameson_Irish_Whiskey.JPG/220px-Jameson_Irish_Whiskey.JPG", // Jameson
-  d9: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Chivas_regal_12yo.jpg/200px-Chivas_regal_12yo.jpg", // Chivas Regal
-  d10: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Monkey_Shoulder_scotch_bottle.jpg/200px-Monkey_Shoulder_scotch_bottle.jpg", // Monkey Shoulder
-  d11: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Absolut_Vodka_-_Original.jpg/200px-Absolut_Vodka_-_Original.jpg", // Absolut
-  d12: "https://images.unsplash.com/photo-1613063029958-6efb1a6c5e91?w=400&h=400&fit=crop", // Nemiroff
+  d1: germanImg,
+  d2: millerImg,
+  d3: beefeaterImg,
+  d4: jagermeisterImg,
+  d5: okheartImg,
+  d6: bacardiImg,
+  d7: ballantinesImg,
+  d8: jamesonImg,
+  d9: chivasImg,
+  d10: monkeyshoulderImg,
+  d11: absolutImg,
+  d12: nemiroffImg,
 
-  // ── Крепкий алкоголь (водка/настойки) ──────────────────
   s1: "https://images.unsplash.com/photo-1607622750671-6cd9a99eabd1?w=400&h=400&fit=crop", // Хортица Айс
   s2: "https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop", // Кызылжар
 
-  // ── Бутылочное пиво ────────────────────────────────────
-  b1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Miller_Lite_six_pack.jpg/250px-Miller_Lite_six_pack.jpg", // Miller
-  b2: "https://images.unsplash.com/photo-1618885472179-5e474019f2a9?w=400&h=400&fit=crop", // Bud
-  b3: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Corona_Extra_beer_bottle_%282019%29.png/150px-Corona_Extra_beer_bottle_%282019%29.png", // Corona Extra
+  b1: millerImg,
+  b2: budsImg,
+  b3: coronaImg,
   b4: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Paulaner_Hefe-Weissbier.JPG/200px-Paulaner_Hefe-Weissbier.JPG", // Paulaner
-  b5: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Tsingtao_Beer.JPG/200px-Tsingtao_Beer.JPG", // Tsingtao
-  b6: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Hoegaarden_bottle.JPG/200px-Hoegaarden_bottle.JPG", // Hoegaarden
+  b5: tsingtaoImg,
+  b6: hoegaardenImg,
 
-  // ── Коктейли ───────────────────────────────────────────
-  c1: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop", // Redbull Vodka
+  c1: redbullvodkaImg,
   c2: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&h=400&fit=crop", // Redbull Jäger
   c3: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=400&h=400&fit=crop", // Redbull Whisky
   c4: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Gin_and_Tonic_with_ingredients.jpg/440px-Gin_and_Tonic_with_ingredients.jpg", // Gin Tonic
@@ -62,7 +72,6 @@ const DRINK_IMAGES: Record<string, string> = {
   c7: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Mojito98.jpg/440px-Mojito98.jpg", // Mojito
 };
 
-/** Fallback local asset keyed by category prefix letter */
 const FALLBACK_BY_PREFIX: Record<string, string> = {
   d: whiskeyImg,
   s: whiskeyImg,
@@ -73,16 +82,16 @@ const FALLBACK_BY_PREFIX: Record<string, string> = {
 const make = (
   id: string,
   name: string,
-  originalPrice: number,
+  min: number,
   base: number,
-  spread = 0.22,
+  originalPrice: number,
 ): Drink => ({
   id,
   name,
-  originalPrice,
+  min,
   base,
-  min: Math.round(base * (1 - spread)),
-  max: Math.round(base * (1 + spread)),
+  originalPrice,
+  max: originalPrice,
   image: DRINK_IMAGES[id] ?? FALLBACK_BY_PREFIX[id[0]] ?? beerImg,
   fallbackImage: FALLBACK_BY_PREFIX[id[0]] ?? beerImg,
 });
@@ -93,18 +102,19 @@ export const CATEGORIES: Category[] = [
     title: "Разливные напитки",
     subtitle: "Draft & Spirits",
     items: [
-      make("d1", "Немецкое разливное", 1800, 1500),
-      make("d2", "Miller разливное", 1500, 1300),
-      make("d3", "Beefeater Gin", 2800, 2500),
-      make("d4", "Jägermeister", 2500, 2200),
-      make("d5", "Orchard", 2000, 1700),
-      make("d6", "Bacardi", 2600, 2300),
-      make("d7", "Ballantine's", 2400, 2100),
-      make("d8", "Jameson", 3000, 2700),
-      make("d9", "Chivas Regal", 4500, 4000),
-      make("d10", "Monkey Shoulder", 4200, 3700),
-      make("d11", "Absolut", 2200, 1900),
-      make("d12", "Nemiroff", 1800, 1500),
+      make("d1", "Немецкое разливное", 790, 1030, 1340),
+      make("d2", "Miller разливное", 1190, 1790, 2260),
+      make("d3", "Beefeater Gin", 1590, 2230, 2860),
+      make("d4", "Jägermeister", 1590, 1910, 2540),
+      make("d5", "Orchard", 1590, 2860, 3500),
+      make("d6", "Bacardi", 1190, 1610, 2020),
+      make("d7", "Ballantine's", 1590, 2540, 3180),
+      make("d8", "Jameson", 1590, 2390, 3020),
+      make("d9", "Chivas Regal", 2590, 3370, 4140),
+      make("d13", "Jack Daniels", 2590, 4400, 5180),
+      make("d10", "Monkey Shoulder", 2990, 4190, 5380),
+      make("d11", "Absolut", 990, 1290, 1580),
+      make("d12", "Nemiroff", 890, 1340, 1690),
     ],
   },
   {
@@ -112,8 +122,8 @@ export const CATEGORIES: Category[] = [
     title: "Крепкий алкоголь",
     subtitle: "Vodka & Spirits",
     items: [
-      make("s1", "Хортица Айс", 1600, 1400),
-      make("s2", "Кызылжар", 1400, 1200),
+      make("s1", "Хортица Айс", 590, 940, 1180),
+      make("s2", "Кызылжар", 590, 830, 1060),
     ],
   },
   {
@@ -121,12 +131,12 @@ export const CATEGORIES: Category[] = [
     title: "Бутылочное пиво",
     subtitle: "Bottled Beer",
     items: [
-      make("b1", "Miller", 1200, 1000),
-      make("b2", "Bud", 1200, 1050),
-      make("b3", "Corona Extra", 1800, 1600),
-      make("b4", "Paulaner", 2000, 1800),
-      make("b5", "Tsingtao", 1500, 1300),
-      make("b6", "Hoegaarden", 1800, 1600),
+      make("b1", "Miller", 990, 1390, 1880),
+      make("b2", "Bud", 990, 1490, 1980),
+      make("b3", "Corona Extra", 2590, 3370, 4140),
+      make("b4", "Paulaner", 1990, 2990, 3580),
+      make("b5", "Tsingtao", 1990, 2790, 3780),
+      make("b6", "Hoegaarden", 1990, 3180, 3980),
     ],
   },
   {
@@ -134,20 +144,19 @@ export const CATEGORIES: Category[] = [
     title: "Коктейли",
     subtitle: "Signature Bar",
     items: [
-      make("c1", "Redbull + Vodka", 2800, 2500),
-      make("c2", "Redbull + Jäger", 3000, 2700),
-      make("c3", "Redbull + Whisky", 3200, 2900),
-      make("c4", "Gin Tonic", 2500, 2200),
-      make("c5", "Long Island", 3500, 3100),
-      make("c6", "Whisky Sour", 3000, 2700),
-      make("c7", "Mojito", 2800, 2500),
+      make("c1", "Redbull + Vodka", 2190, 2850, 3500),
+      make("c2", "Redbull + Jäger", 2190, 3070, 3940),
+      make("c4", "Gin Tonic", 2190, 3290, 4160),
+      make("c3", "Redbull + Whisky", 2190, 3500, 4380),
+      make("c7", "Mojito", 1890, 2650, 3400),
+      make("c5", "Long Island", 2490, 3240, 4230),
+      make("c6", "Whisky Sour", 2190, 3290, 4160),
     ],
   },
 ];
 
 export const ALL_ITEMS = CATEGORIES.flatMap((c) => c.items);
 
-/** Round to nearest 10 */
 export const roundTo10 = (value: number): number =>
   Math.round(value / 10) * 10;
 
