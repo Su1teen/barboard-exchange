@@ -11,5 +11,9 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    // Co-located test files (e.g. src/routes/index.test.tsx) live next to the
+    // routes they exercise. Exclude them from the route generator so they do
+    // not need to export a Route and do not pollute the route tree.
+    router: { routeFileIgnorePattern: "[.](test|spec)[.]" },
   },
 });

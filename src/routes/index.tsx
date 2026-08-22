@@ -149,13 +149,20 @@ function Delta({ product }: { product: PublicProduct }) {
 
 // ── Product card ───────────────────────────────────────────────────────────
 
-function ProductCard({ product }: { product: PublicProduct }) {
+export function ProductCard({ product }: { product: PublicProduct }) {
   const trend = trendOf(product);
-  const awaiting = !product.isAvailable || product.price === 0;
 
   const current = roundTo10(product.price);
-  const previous = roundTo10(product.previousPrice);
+  // `previousPrice` is nullable in the production API (null when there is no
+  // previous round price). Use a nullish check, never truthiness — a price of
+  // 0 is a valid value.
+  const previousRaw = product.previousPrice ?? null;
+  const previous = previousRaw === null ? null : roundTo10(previousRaw);
 
+  // The current price is always rendered — regardless of `isAvailable`,
+  // `changePercent === 0`, `previousPrice === null`, or `price === 0`. The
+  // exchange is autonomous from iiko at this stage, so `isAvailable` must not
+  // gate the price display.
   let priceColor = "text-white/60"; // flat
   if (trend === "down") priceColor = "text-emerald-400";
   else if (trend === "up") priceColor = "text-rose-400";
@@ -185,39 +192,26 @@ function ProductCard({ product }: { product: PublicProduct }) {
 
         <div className="mt-2 flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-baseline gap-4">
-            {awaiting ? (
-              <span className="text-3xl font-extrabold leading-none tabular-nums tracking-tight text-white/40">
-                скоро
-              </span>
-            ) : (
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={current}
-                  initial={{ opacity: 0, y: current < previous ? -8 : 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: current < previous ? 8 : -8 }}
-                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                  className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${priceColor}`}
-                >
-                  {formatPrice(product.price)}
-                </motion.span>
-              </AnimatePresence>
-            )}
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={current}
+                initial={{ opacity: 0, y: previous !== null && current < previous ? -8 : 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: previous !== null && current < previous ? 8 : -8 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${priceColor}`}
+              >
+                {formatPrice(product.price)}
+              </motion.span>
+            </AnimatePresence>
 
-            {!awaiting && previous > 0 && (
+            {previous !== null && previous > 0 && (
               <span className="text-xl font-semibold tabular-nums text-white/35">
-                пред. {formatPrice(product.previousPrice)}
+                пред. {formatPrice(previousRaw as number)}
               </span>
             )}
           </div>
-          {awaiting ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-base font-bold text-white/40 ring-1 ring-white/10">
-              <Clock className="size-4" strokeWidth={2.5} />
-              ожидание
-            </span>
-          ) : (
-            <Delta product={product} />
-          )}
+          <Delta product={product} />
         </div>
       </div>
     </div>
@@ -236,8 +230,10 @@ function Ticker({
   countdownLabel: string;
 }) {
   const items = useMemo(() => {
-    const available = products.filter((p) => p.isAvailable && p.price > 0);
-    const sorted = [...available].sort((a, b) => b.changePercent - a.changePercent);
+    // Do not filter by `isAvailable` — the exchange is autonomous from iiko at
+    // this stage, so every published product is shown. Sort by changePercent
+    // to surface the top gainer / loser for the marquee.
+    const sorted = [...products].sort((a, b) => b.changePercent - a.changePercent);
     const top = sorted[0];
     const bottom = sorted[sorted.length - 1];
 

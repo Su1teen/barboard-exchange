@@ -30,7 +30,7 @@ const makeProduct = (
     id: string;
     name: string;
     price: number;
-    previousPrice: number;
+    previousPrice: number | null;
     changePercent: number;
     isAvailable: boolean;
   }>,
@@ -248,5 +248,65 @@ describe("useExchangeData", () => {
 
     // No additional fetches after unmount.
     expect(mockedCurrent).toHaveBeenCalledTimes(1);
+  });
+
+  // ── buildData merge (requirement: keep product.price when round override
+  //    is absent) ────────────────────────────────────────────────────────────
+
+  it("merges round products onto the menu, keeping menu price for products without a round override", async () => {
+    const roundProduct = makeProduct({
+      id: "p1",
+      name: "Gin Tonic",
+      price: 3370,
+      previousPrice: 3000,
+      changePercent: 12.4,
+      isAvailable: true,
+    });
+    const menuOnly = makeProduct({
+      id: "p2",
+      name: "Jameson",
+      price: 2000,
+      previousPrice: null,
+      changePercent: 0,
+      isAvailable: false,
+    });
+
+    const current = round([roundProduct]);
+    setResponses(current, next, productsPayload([roundProduct, menuOnly]));
+
+    const { result } = renderHook(() => useExchangeData());
+
+    await waitFor(() => expect(result.current.data?.products).toHaveLength(2));
+
+    const products = result.current.data?.products ?? [];
+    const p1 = products.find((p) => p.id === "p1");
+    const p2 = products.find((p) => p.id === "p2");
+
+    // Round override wins for p1.
+    expect(p1?.price).toBe(3370);
+    // Menu-only product keeps its own price (no round override).
+    expect(p2?.price).toBe(2000);
+    expect(p2?.previousPrice).toBeNull();
+    expect(p2?.isAvailable).toBe(false);
+  });
+
+  it("falls back to the menu products when the round has no products", async () => {
+    const menu = makeProduct({
+      id: "p2",
+      name: "Jameson",
+      price: 2000,
+      previousPrice: null,
+      changePercent: 0,
+      isAvailable: false,
+    });
+    setResponses(round([], "no_published_round"), next, productsPayload([menu]));
+
+    const { result } = renderHook(() => useExchangeData());
+
+    await waitFor(() => expect(result.current.data?.products).toHaveLength(1));
+
+    const product = result.current.data?.products[0];
+    expect(product?.price).toBe(2000);
+    expect(product?.isAvailable).toBe(false);
   });
 });

@@ -64,13 +64,39 @@ function messageFrom(error: unknown): string {
  * `rounds/current` is the source of truth for the active round + live prices.
  * When no round is published yet, `products` is used to still show the bar's
  * exchange menu (prices pending). `rounds/next` feeds the countdown.
+ *
+ * When the current round carries product overrides, they are merged onto the
+ * menu fallback by `id`: a product present only in the menu keeps its
+ * `product.price` (the round override is absent), while a product present in
+ * the round takes the round's live values. This preserves the menu price
+ * whenever a round override is missing.
  */
 function buildData(
   current: CurrentRoundResponse,
   next: NextRoundResponse | null,
   productsFallback: PublicProduct[],
 ): ExchangeData {
-  const products = current.products.length > 0 ? current.products : productsFallback;
+  const roundById = new Map<string, PublicProduct>();
+  for (const p of current.products) roundById.set(p.id, p);
+
+  let products: PublicProduct[];
+  if (current.products.length === 0) {
+    products = productsFallback;
+  } else if (productsFallback.length === 0) {
+    products = current.products;
+  } else {
+    // Merge: round overrides win per id; menu-only products keep their price.
+    const seen = new Set<string>();
+    const merged: PublicProduct[] = [];
+    for (const roundProduct of current.products) {
+      merged.push(roundProduct);
+      seen.add(roundProduct.id);
+    }
+    for (const menuProduct of productsFallback) {
+      if (!seen.has(menuProduct.id)) merged.push(menuProduct);
+    }
+    products = merged;
+  }
 
   return {
     round: current.currentRound,

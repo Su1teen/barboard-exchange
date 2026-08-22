@@ -37,7 +37,10 @@ export type PublicProduct = {
   name: string;
   price: number;
   currency: string;
-  previousPrice: number;
+  // The production backend returns `null` when a product has no previous round
+  // price yet (e.g. first published round, or menu-only fallback). Keep this
+  // nullable so callers can use a nullish check instead of truthiness.
+  previousPrice: number | null;
   changePercent: number;
   isAvailable: boolean;
 };
