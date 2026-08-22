@@ -19,6 +19,7 @@ const okResponse = (body: unknown): Response =>
 const product = {
   id: "p1",
   name: "Gin Tonic",
+  category: "Коктейли",
   price: 3290,
   currency: "KZT",
   previousPrice: 3000,

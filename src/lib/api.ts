@@ -35,6 +35,10 @@ export const API_URL: string = resolveApiUrl(import.meta.env as unknown as ApiEn
 export type PublicProduct = {
   id: string;
   name: string;
+  // The production backend includes the Russian category label, e.g.
+  // "Крепкий алкоголь", "Бутылочное пиво", "Коктейли". Used by the frontend
+  // for category-fallback images and display.
+  category: string;
   price: number;
   currency: string;
   // The production backend returns `null` when a product has no previous round

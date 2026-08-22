@@ -15,7 +15,14 @@ import {
 } from "lucide-react";
 
 import type { PublicProduct } from "@/lib/api";
-import { formatPercent, formatPrice, roundTo10 } from "@/lib/format";
+import {
+  formatDiscount,
+  formatPercent,
+  formatPrice,
+  discountPercent,
+  roundTo10,
+} from "@/lib/format";
+import { resolveProductImage, resolveProductMeta, type ProductMeta } from "@/lib/products";
 import { POLL_INTERVAL_MS, useExchangeData } from "@/hooks/useExchangeData";
 
 export const Route = createFileRoute("/")({
@@ -124,11 +131,28 @@ function trendOf(product: PublicProduct): Trend {
   return "flat";
 }
 
-function Delta({ product }: { product: PublicProduct }) {
-  const trend = trendOf(product);
-  const flat = trend === "flat";
+/**
+ * Round-change badge. Uses the backend `changePercent` as the authoritative
+ * round change when present (|changePercent| > 0.05). When the backend reports
+ * `changePercent === 0` but a `previousPrice` exists, the value is still 0 —
+ * no movement. When `previousPrice` is null, the product is in its first
+ * published round and we show "Первый раунд" instead of a percentage.
+ */
+function RoundChange({ product }: { product: PublicProduct }) {
+  const hasPrevious = product.previousPrice !== null && product.previousPrice !== undefined;
+  const change = product.changePercent;
+  const trend: Trend = change > 0.05 ? "up" : change < -0.05 ? "down" : "flat";
 
-  // Price DROP = good for the guest → emerald. Price RISE = bad → rose.
+  if (!hasPrevious && Math.abs(change) < 0.05) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-base font-bold text-white/40 ring-1 ring-white/10">
+        <Sparkles className="size-4" strokeWidth={2.5} />
+        Первый раунд
+      </span>
+    );
+  }
+
+  const flat = trend === "flat";
   const tone = flat
     ? "bg-white/5 text-white/50 ring-white/10"
     : trend === "down"
@@ -142,7 +166,7 @@ function Delta({ product }: { product: PublicProduct }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xl font-bold tabular-nums ring-1 ${tone}`}
     >
       <Icon className="size-5" strokeWidth={2.5} />
-      {formatPercent(product.changePercent)}
+      {formatPercent(change)}
     </span>
   );
 }
@@ -153,16 +177,23 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const trend = trendOf(product);
 
   const current = roundTo10(product.price);
-  // `previousPrice` is nullable in the production API (null when there is no
-  // previous round price). Use a nullish check, never truthiness — a price of
-  // 0 is a valid value.
   const previousRaw = product.previousPrice ?? null;
   const previous = previousRaw === null ? null : roundTo10(previousRaw);
 
-  // The current price is always rendered — regardless of `isAvailable`,
-  // `changePercent === 0`, `previousPrice === null`, or `price === 0`. The
-  // exchange is autonomous from iiko at this stage, so `isAvailable` must not
-  // gate the price display.
+  // Read-only frontend metadata (originalPrice, minPrice, category).
+  const meta: ProductMeta | undefined = useMemo(() => resolveProductMeta(product), [product]);
+
+  // Image: slug → normalized name → category fallback. Always a valid src.
+  const imageSrc = useMemo(() => resolveProductImage(product), [product]);
+
+  // Discount from original price (independent from round changePercent).
+  const discount = meta ? discountPercent(meta.originalPrice, product.price) : null;
+  const isMinPrice = meta !== undefined && product.price <= meta.minPrice;
+
+  // Controlled error: if the API price is not a finite number, show a
+  // per-card error without breaking the rest of the grid.
+  const priceValid = typeof product.price === "number" && Number.isFinite(product.price);
+
   let priceColor = "text-white/60"; // flat
   if (trend === "down") priceColor = "text-emerald-400";
   else if (trend === "up") priceColor = "text-rose-400";
@@ -174,44 +205,91 @@ export function ProductCard({ product }: { product: PublicProduct }) {
     cardClass = "border-red-900/30 bg-black/40 shadow-[0_0_20px_rgba(239,68,68,0.08)]";
   }
 
-  const Icon = trend === "down" ? TrendingDown : trend === "up" ? TrendingUp : Waves;
-
   return (
     <div
       className={`relative flex items-center gap-5 overflow-hidden rounded-2xl border px-5 py-4 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
     >
-      <div className="relative z-10 flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
-        <Icon
-          className={`size-9 ${trend === "down" ? "text-emerald-300/80" : trend === "up" ? "text-rose-300/80" : "text-white/40"}`}
-          strokeWidth={2}
+      {/* Product image — always a valid local static import. */}
+      <div className="relative z-10 flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+        <img
+          src={imageSrc}
+          alt={product.name}
+          className="size-full object-cover"
+          loading="lazy"
+          // Prevent any broken-image icon from ever showing — if the static
+          // import somehow fails, hide the img element gracefully.
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+          }}
         />
       </div>
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center">
-        <p className="truncate text-2xl font-bold tracking-tight text-white/90">{product.name}</p>
+        <div className="flex items-baseline gap-3">
+          <p className="truncate text-2xl font-bold tracking-tight text-white/90">{product.name}</p>
+          {product.category ? (
+            <span className="shrink-0 text-sm font-semibold uppercase tracking-wide text-white/30">
+              {product.category}
+            </span>
+          ) : null}
+        </div>
 
         <div className="mt-2 flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-baseline gap-4">
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={current}
-                initial={{ opacity: 0, y: previous !== null && current < previous ? -8 : 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: previous !== null && current < previous ? 8 : -8 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${priceColor}`}
-              >
-                {formatPrice(product.price)}
-              </motion.span>
-            </AnimatePresence>
+            {priceValid ? (
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={current}
+                  initial={{ opacity: 0, y: previous !== null && current < previous ? -8 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: previous !== null && current < previous ? 8 : -8 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${priceColor}`}
+                >
+                  {formatPrice(product.price)}
+                </motion.span>
+              </AnimatePresence>
+            ) : (
+              <span className="text-xl font-bold text-rose-300/80">Цена недоступна</span>
+            )}
 
-            {previous !== null && previous > 0 && (
-              <span className="text-xl font-semibold tabular-nums text-white/35">
-                пред. {formatPrice(previousRaw as number)}
+            {/* Original (menu) price — only when we have static metadata. */}
+            {meta && (
+              <span className="text-lg font-semibold tabular-nums text-white/35">
+                обычная {formatPrice(meta.originalPrice)}
               </span>
             )}
           </div>
-          <Delta product={product} />
+
+          <RoundChange product={product} />
+        </div>
+
+        {/* Discount + min-price badges row. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {discount !== null && (
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-0.5 text-base font-bold tabular-nums ring-1 ${
+                discount > 0
+                  ? "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"
+                  : discount < 0
+                    ? "bg-rose-400/10 text-rose-300 ring-rose-300/20"
+                    : "bg-white/5 text-white/50 ring-white/10"
+              }`}
+            >
+              {discount > 0
+                ? `Скидка ${formatDiscount(discount)}`
+                : discount < 0
+                  ? `Наценка ${formatDiscount(discount)}`
+                  : "0%"}
+            </span>
+          )}
+
+          {isMinPrice && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-3 py-0.5 text-base font-bold text-amber-200 ring-1 ring-amber-300/30">
+              <Flame className="size-4" strokeWidth={2.5} />
+              Минимальная цена
+            </span>
+          )}
         </div>
       </div>
     </div>

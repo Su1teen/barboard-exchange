@@ -29,6 +29,7 @@ const makeProduct = (
   overrides: Partial<{
     id: string;
     name: string;
+    category: string;
     price: number;
     previousPrice: number | null;
     changePercent: number;
@@ -37,6 +38,7 @@ const makeProduct = (
 ) => ({
   id: "p1",
   name: "Gin Tonic",
+  category: "Коктейли",
   price: 3290,
   currency: "KZT",
   previousPrice: 3000,
