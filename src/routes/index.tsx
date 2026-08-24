@@ -163,7 +163,7 @@ function RoundChange({ product }: { product: PublicProduct }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xl font-bold tabular-nums ring-1 ${tone}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-base font-bold tabular-nums ring-1 ${tone}`}
     >
       <Icon className="size-5" strokeWidth={2.5} />
       {formatPercent(change)}
@@ -206,11 +206,11 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   }
 
   return (
-    <div
-      className={`relative flex items-center gap-5 overflow-hidden rounded-2xl border px-5 py-4 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
+    <article
+      className={`product-card relative rounded-2xl border p-4 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
     >
       {/* Product image — always a valid local static import. */}
-      <div className="relative z-10 flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+      <div className="product-card__image relative rounded-xl bg-white/[0.05] ring-1 ring-white/10">
         <img
           src={imageSrc}
           alt={product.name}
@@ -224,18 +224,20 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         />
       </div>
 
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center">
-        <div className="flex items-baseline gap-3">
-          <p className="truncate text-2xl font-bold tracking-tight text-white/90">{product.name}</p>
+      <div className="product-card__content">
+        <div className="product-card__identity">
+          <p className="product-name text-2xl font-bold tracking-tight text-white/90">
+            {product.name}
+          </p>
           {product.category ? (
-            <span className="shrink-0 text-sm font-semibold uppercase tracking-wide text-white/30">
+            <span className="product-category text-sm font-semibold uppercase tracking-wide text-white/30">
               {product.category}
             </span>
           ) : null}
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-4">
+        <div className="product-card__price-row">
+          <div className="product-card__prices">
             {priceValid ? (
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
@@ -244,31 +246,33 @@ export function ProductCard({ product }: { product: PublicProduct }) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: previous !== null && current < previous ? 8 : -8 }}
                   transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                  className={`text-3xl font-extrabold leading-none tabular-nums tracking-tight ${priceColor}`}
+                  className={`product-price font-extrabold tabular-nums tracking-tight ${priceColor}`}
                 >
                   {formatPrice(product.price)}
                 </motion.span>
               </AnimatePresence>
             ) : (
-              <span className="text-xl font-bold text-rose-300/80">Цена недоступна</span>
+              <span className="product-price text-rose-300/80">Цена недоступна</span>
             )}
 
             {/* Original (menu) price — only when we have static metadata. */}
             {meta && (
-              <span className="text-lg font-semibold tabular-nums text-white/35">
+              <span className="product-original-price font-semibold tabular-nums text-white/35">
                 обычная {formatPrice(meta.originalPrice)}
               </span>
             )}
           </div>
 
-          <RoundChange product={product} />
+          <div className="product-card__change">
+            <RoundChange product={product} />
+          </div>
         </div>
 
         {/* Discount + min-price badges row. */}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="badges">
           {discount !== null && (
             <span
-              className={`inline-flex items-center rounded-full px-3 py-0.5 text-base font-bold tabular-nums ring-1 ${
+              className={`badge inline-flex items-center rounded-full px-3 py-0.5 font-bold tabular-nums ring-1 ${
                 discount > 0
                   ? "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"
                   : discount < 0
@@ -285,14 +289,14 @@ export function ProductCard({ product }: { product: PublicProduct }) {
           )}
 
           {isMinPrice && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-3 py-0.5 text-base font-bold text-amber-200 ring-1 ring-amber-300/30">
-              <Flame className="size-4" strokeWidth={2.5} />
-              Минимальная цена
+            <span className="badge inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-3 py-0.5 font-bold text-amber-200 ring-1 ring-amber-300/30">
+              <Flame className="size-4 shrink-0" strokeWidth={2.5} />
+              Мин. цена
             </span>
           )}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -390,7 +394,7 @@ function CenteredMessage({
 
 /** Always display a 2×2 grid optimized for TV */
 function gridClasses(): string {
-  return "grid-cols-2 grid-rows-2";
+  return "cards-grid";
 }
 
 // ── Page component ─────────────────────────────────────────────────────────
@@ -430,11 +434,11 @@ function Index() {
   const countdownLabel = formatCountdown(countdown);
 
   return (
-    <main className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#07080c] font-display text-white">
+    <main className="main-layout relative flex min-h-screen w-full flex-col bg-[#07080c] font-display text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_15%_-10%,rgba(120,140,190,0.22),transparent_60%),radial-gradient(90%_70%_at_100%_110%,rgba(190,150,110,0.14),transparent_60%)]" />
 
-      <header className="relative z-30 flex items-center justify-between px-10 pt-4 pb-3">
-        <div className="flex items-baseline gap-5">
+      <header className="exchange-header relative z-30 px-10 pt-4 pb-3">
+        <div className="exchange-header__brand flex items-baseline gap-5">
           <h1 className="text-3xl font-extrabold tracking-tight">
             XOXO <span className="text-white/45">Exchange</span>
           </h1>
@@ -444,17 +448,21 @@ function Index() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-sm font-semibold text-white/55">
-          <RoundBadge
-            roundKey={data?.round?.roundKey ?? null}
-            roundOpen={roundOpen}
-            endsAt={data?.round?.endsAt ?? null}
-            countdownLabel={countdownLabel}
-          />
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 tabular-nums">
+        <div className="exchange-header__meta flex items-center gap-3 text-sm font-semibold text-white/55">
+          <span className="exchange-header__round">
+            <RoundBadge
+              roundKey={data?.round?.roundKey ?? null}
+              roundOpen={roundOpen}
+              endsAt={data?.round?.endsAt ?? null}
+              countdownLabel={countdownLabel}
+            />
+          </span>
+          <span className="exchange-header__updated rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 tabular-nums">
             обн. {formatUpdated(lastUpdatedAt)}
           </span>
-          <span className="ml-1 text-xl font-extrabold tabular-nums text-white/70">{clock}</span>
+          <span className="exchange-header__clock ml-1 text-xl font-extrabold tabular-nums text-white/70">
+            {clock}
+          </span>
         </div>
       </header>
 
@@ -525,13 +533,7 @@ function Index() {
               transition={{ duration: 0.5, ease: "easeInOut" }}
               className="flex h-full flex-col"
             >
-              <div className="mb-3 flex items-center gap-4">
-                <h2 className="text-2xl font-extrabold tracking-tight text-white/90">
-                  {roundOpen ? "Живые котировки" : "Биржевое меню"}
-                </h2>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/30">
-                  Round {roundLabel(data?.round?.roundKey ?? null)}
-                </p>
+              <div className="mb-3 flex min-h-0 items-center gap-4">
                 {totalPages > 1 && (
                   <div className="ml-auto flex items-center gap-1.5">
                     {Array.from({ length: totalPages }, (_, i) => (
@@ -563,7 +565,7 @@ function Index() {
   );
 }
 
-function RoundBadge({
+export function RoundBadge({
   roundKey,
   roundOpen,
   endsAt,

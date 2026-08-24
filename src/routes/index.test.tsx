@@ -5,7 +5,7 @@ import type { PublicProduct } from "@/lib/api";
 import { formatDiscount, formatPrice } from "@/lib/format";
 import { PRODUCT_IMAGES } from "@/lib/products";
 
-import { ProductCard } from "@/routes/index";
+import { ProductCard, RoundBadge } from "@/routes/index";
 
 const makeProduct = (overrides: Partial<PublicProduct> = {}): PublicProduct => ({
   id: "p1",
@@ -148,7 +148,9 @@ describe("ProductCard discount rendering", () => {
     // Jameson originalPrice = 2000, currentPrice = 1590 → discount 20.5%
     // The badge text is "Скидка −20.5%" — use a regex to match the discount value.
     expect(screen.getByText(/Скидка/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(formatDiscount(20.5).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(formatDiscount(20.5).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
+    ).toBeInTheDocument();
     // Original price label is shown.
     expect(screen.getByText(/обычная/)).toBeInTheDocument();
   });
@@ -197,13 +199,13 @@ describe("ProductCard minimum price badge", () => {
   it("shows Минимальная цена badge when currentPrice === minPrice", () => {
     // Jameson minPrice = 1590.
     render(<ProductCard product={makeProduct({ id: "jameson", name: "Jameson", price: 1590 })} />);
-    expect(screen.getByText(/Минимальная цена/)).toBeInTheDocument();
+    expect(screen.getByText("Мин. цена")).toBeInTheDocument();
   });
 
   it("shows Минимальная цена badge when currentPrice is below minPrice", () => {
     // Jameson minPrice = 1590, price = 1500 (below min).
     render(<ProductCard product={makeProduct({ id: "jameson", name: "Jameson", price: 1500 })} />);
-    expect(screen.getByText(/Минимальная цена/)).toBeInTheDocument();
+    expect(screen.getByText("Мин. цена")).toBeInTheDocument();
   });
 
   it("does not show Минимальная цена badge when currentPrice > minPrice", () => {
@@ -259,6 +261,50 @@ describe("ProductCard round change indicator", () => {
     // formatPercent(0) returns "0.0%" — the round-change badge shows this.
     expect(screen.getByText("0.0%")).toBeInTheDocument();
     expect(screen.queryByText("Первый раунд")).not.toBeInTheDocument();
+  });
+});
+
+// ── TV layout contracts ──────────────────────────────────────────────────────
+
+describe("Guest board TV layout", () => {
+  it("renders exactly one compact round label", () => {
+    render(
+      <RoundBadge
+        roundKey="2026-08-24-08-24-Asia-Almaty"
+        roundOpen
+        endsAt="2026-08-24T18:30:00+05:00"
+        countdownLabel="—"
+      />,
+    );
+
+    expect(screen.getByText(/Раунд 08:24 · до/)).toBeInTheDocument();
+    expect(screen.queryByText(/ROUND 08:24/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Живые котировки")).not.toBeInTheDocument();
+  });
+
+  it("keeps long identity text in separate, constrained rows", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          name: "Очень длинное локализованное название напитка для телевизионного экрана",
+          category: "Категория с очень длинным локализованным описанием",
+        })}
+      />,
+    );
+
+    const card = document.querySelector(".product-card");
+    expect(card).toBeInTheDocument();
+    expect(card?.querySelector(".product-name")).toHaveClass("product-name");
+    expect(card?.querySelector(".product-category")).toHaveClass("product-category");
+    expect(card?.querySelector(".product-price")).toHaveClass("product-price");
+  });
+
+  it("uses a wrapping badge row for the minimum-price status", () => {
+    render(<ProductCard product={makeProduct({ id: "jameson", price: 1590 })} />);
+    const badges = document.querySelector(".badges");
+
+    expect(badges).toHaveClass("badges");
+    expect(screen.getByText("Мин. цена")).toBeInTheDocument();
   });
 });
 
