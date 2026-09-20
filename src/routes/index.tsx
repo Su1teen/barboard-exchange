@@ -180,15 +180,20 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const previousRaw = product.previousPrice ?? null;
   const previous = previousRaw === null ? null : roundTo10(previousRaw);
 
-  // Read-only frontend metadata (originalPrice, minPrice, category).
+  // Read-only frontend metadata (originalPrice, minPrice, category). Used only
+  // as a fallback: the backend payload is authoritative when it carries the
+  // fields.
   const meta: ProductMeta | undefined = useMemo(() => resolveProductMeta(product), [product]);
+  const originalPrice = product.originalPrice ?? meta?.originalPrice ?? null;
+  const minPrice = product.minPrice ?? meta?.minPrice ?? null;
+  const level = typeof product.priceLevelPercent === "number" ? product.priceLevelPercent : null;
 
   // Image: slug → normalized name → category fallback. Always a valid src.
   const imageSrc = useMemo(() => resolveProductImage(product), [product]);
 
   // Discount from original price (independent from round changePercent).
-  const discount = meta ? discountPercent(meta.originalPrice, product.price) : null;
-  const isMinPrice = meta !== undefined && product.price <= meta.minPrice;
+  const discount = originalPrice !== null ? discountPercent(originalPrice, product.price) : null;
+  const isMinPrice = minPrice !== null && product.price <= minPrice;
 
   // Controlled error: if the API price is not a finite number, show a
   // per-card error without breaking the rest of the grid.
@@ -255,10 +260,10 @@ export function ProductCard({ product }: { product: PublicProduct }) {
               <span className="product-price text-rose-300/80">Цена недоступна</span>
             )}
 
-            {/* Original (menu) price — only when we have static metadata. */}
-            {meta && (
+            {/* Original (menu) price — from the API, else static metadata. */}
+            {originalPrice !== null && (
               <span className="product-original-price font-semibold tabular-nums text-white/35">
-                обычная {formatPrice(meta.originalPrice)}
+                обычная {formatPrice(originalPrice)}
               </span>
             )}
           </div>
@@ -285,6 +290,15 @@ export function ProductCard({ product }: { product: PublicProduct }) {
                 : discount < 0
                   ? `Наценка ${formatDiscount(discount)}`
                   : "0%"}
+            </span>
+          )}
+
+          {level !== null && (
+            <span
+              className="badge product-level inline-flex items-center rounded-full bg-white/5 px-3 py-0.5 font-bold tabular-nums text-white/60 ring-1 ring-white/10"
+              data-testid="price-level"
+            >
+              {`Уровень ${level > 0 ? "+" : ""}${level}%`}
             </span>
           )}
 

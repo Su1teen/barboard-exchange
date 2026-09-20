@@ -107,6 +107,24 @@ function buildData(
   };
 }
 
+/**
+ * Dev-only diagnostics: показывает, что опрос действительно доставил новые
+ * цены. Никаких секретов — только roundKey, время и число изменившихся цен.
+ */
+function logPricesUpdated(previous: Map<string, number>, data: ExchangeData): void {
+  if (!import.meta.env.DEV || previous.size === 0) return;
+  const changedProducts = data.products.filter(
+    (product) => previous.has(product.id) && previous.get(product.id) !== product.price,
+  ).length;
+  if (changedProducts === 0) return;
+  console.info({
+    event: "public_prices_updated",
+    roundKey: data.round?.roundKey ?? null,
+    updatedAt: data.generatedAt,
+    changedProducts,
+  });
+}
+
 export function useExchangeData(): ExchangeState {
   const [state, setState] = useState<Omit<ExchangeState, "retry">>(INITIAL_STATE);
 
@@ -115,6 +133,7 @@ export function useExchangeData(): ExchangeState {
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const retryTokenRef = useRef(0);
+  const previousPricesRef = useRef(new Map<string, number>());
 
   const load = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -143,6 +162,8 @@ export function useExchangeData(): ExchangeState {
       if (!mountedRef.current || token !== retryTokenRef.current) return;
 
       const data = buildData(current, next, products.products);
+      logPricesUpdated(previousPricesRef.current, data);
+      previousPricesRef.current = new Map(data.products.map((p) => [p.id, p.price]));
       setState({
         data,
         isLoading: false,

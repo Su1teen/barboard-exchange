@@ -47,6 +47,14 @@ export type PublicProduct = {
   previousPrice: number | null;
   changePercent: number;
   isAvailable: boolean;
+  // Ценовые метаданные раунда. Бэкенд отдаёт их и в /products, и в
+  // /rounds/current; поля опциональны, чтобы фронтенд пережил ответ старой
+  // версии API и откатился на статические метаданные.
+  originalPrice?: number;
+  minPrice?: number;
+  /** Канонический уровень цены: -30…70 с шагом 10. */
+  priceLevelPercent?: number;
+  discountPercent?: number;
 };
 
 export type CurrentRound = {
