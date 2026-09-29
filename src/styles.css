@@ -146,8 +146,14 @@
   body,
   #root {
     width: 100%;
-    min-height: 100%;
+    /* Use dvh (dynamic viewport height) so mobile/TV browser chrome is
+       excluded from the height calculation.  Falls back to 100vh on older
+       Smart TV browsers that don't support dvh. */
+    height: 100dvh;
+    height: 100vh; /* fallback — overridden by dvh-capable browsers */
     margin: 0;
+    /* Guarantee no scroll at any level outside the fixed tv-viewport. */
+    overflow: hidden;
   }
 
   body {
@@ -157,261 +163,298 @@
   }
 }
 
-/* Guest board layout: explicit zones prevent TV cards from colliding. */
+/* ═══════════════════════════════════════════════════════════════════════
+   Guest TV board — fixed 1920×1080 logical stage.
+
+   This is a digital-signage dashboard, not a responsive website. The whole
+   composition is designed once at exactly 1920×1080 px; the outer viewport
+   only applies a single uniform "contain" scale (the `TvStage` component
+   computes it from real window measurements; the transform below is just a
+   first-paint fallback for browsers with CSS typed arithmetic). Inside the
+   stage everything uses fixed pixels — no vw/vh/clamp, no media queries —
+   so the layout is identical at any viewport size, browser zoom, or OS
+   display scaling.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.tv-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* Letterbox backdrop for viewports whose aspect ratio differs from 16:9. */
+  background:
+    radial-gradient(120% 80% at 15% -10%, rgba(120, 140, 190, 0.12), transparent 60%),
+    radial-gradient(90% 70% at 100% 110%, rgba(190, 150, 110, 0.08), transparent 60%), #04050a;
+}
+
+.tv-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  /* Pre-mount fallback — overridden by the inline style TvStage sets from
+     real viewport measurements. Browsers without typed arithmetic
+     (calc(100vw / 1920px)) ignore it and get the JS-driven transform. */
+  --tv-scale: min(calc(100vw / 1920px), calc(100vh / 1080px));
+  transform: translate(
+      calc((100vw - (1920px * var(--tv-scale))) / 2),
+      calc((100vh - (1080px * var(--tv-scale))) / 2)
+    )
+    scale(var(--tv-scale));
+}
+
+.main-layout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  /* TV safe area: physical panels can overscan the outer ~2–3%, so no
+     critical content is placed closer than 48–64 px to the canvas edge. */
+  padding: 48px 64px;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
 .exchange-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  display: flex;
   align-items: center;
-  gap: clamp(8px, 1vw, 20px);
+  justify-content: space-between;
+  gap: 32px;
+  height: 72px;
+  flex: none;
   min-width: 0;
 }
 
-.exchange-header__brand,
-.exchange-header__meta,
-.exchange-header__round,
-.exchange-header__updated,
-.exchange-header__clock {
+.exchange-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: none;
   min-width: 0;
 }
 
-.exchange-header__round,
-.exchange-header__updated,
-.exchange-header__clock {
+.exchange-header__title {
+  font-size: 40px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.exchange-header__live {
+  font-size: 15px;
+  padding: 7px 16px;
   white-space: nowrap;
 }
 
 .exchange-header__meta {
-  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  white-space: nowrap;
 }
 
-.main-layout {
-  min-width: 0;
-  max-width: 100vw;
-  overflow-x: hidden;
+.exchange-header__round {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.exchange-header__updated {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.exchange-header__clock {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* Fixed-width slot — the clock never shifts the header layout. */
+  min-width: 5ch;
+  text-align: right;
+}
+
+/* ── Stale-data banner (transient, in-flow) ────────────────────────────── */
+
+.stale-banner {
+  flex: none;
+  height: 56px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  font-size: 20px;
+}
+
+/* ── Content zone ──────────────────────────────────────────────────────── */
+
+.exchange-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-dots {
+  flex: none;
+  height: 24px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .cards-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: clamp(10px, 1.3vw, 24px);
-  align-items: stretch;
+  gap: 24px;
 }
+
+/* ── Product card ──────────────────────────────────────────────────────── */
 
 .product-card {
   display: grid;
-  grid-template-columns: minmax(120px, 30%) minmax(0, 1fr);
-  gap: clamp(8px, 1vw, 18px);
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px;
   min-width: 0;
-  min-height: clamp(190px, 24vh, 360px);
-  height: 100%;
+  min-height: 0;
+  border-radius: 24px;
   overflow: hidden;
 }
 
-.product-card__image,
-.product-card__content,
-.product-card__identity,
-.product-card__price-row,
-.product-card__prices,
-.product-card__change,
-.product-card .badge {
-  min-width: 0;
-  max-width: 100%;
-}
-
 .product-card__image {
+  width: 300px;
+  height: 100%;
   min-height: 0;
+  padding: 6px;
   overflow: hidden;
 }
 
 .product-card__content {
-  display: grid;
-  align-content: center;
-  gap: clamp(4px, 0.6vw, 12px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
 .product-card__identity {
-  display: grid;
-  gap: 4px;
-  overflow: hidden;
+  flex: none;
+  min-width: 0;
 }
 
 .product-name {
-  min-width: 0;
-  max-width: 100%;
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  /* Controlled truncation is allowed only for the name: max two lines,
+     never affecting the card height. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: calc(2 * 1.12em);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .product-category {
-  min-width: 0;
-  max-width: 100%;
+  display: block;
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
+/* Price block — the hero data of the card. Anchored to the bottom (with the
+   badges row) so all four cards share one price baseline regardless of name
+   length. Financial values NEVER shrink and NEVER truncate: the round-change
+   badge lives in its own column and yields width first. */
 .product-card__price-row {
+  margin-top: auto;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(6px, 0.8vw, 16px);
+  gap: 20px;
+  min-width: 0;
 }
 
 .product-card__prices {
   display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: clamp(6px, 0.8vw, 16px);
-  overflow: hidden;
-}
-
-.product-card__prices > * {
-  min-width: 0;
-  max-width: 100%;
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
 }
 
 .product-price {
-  max-width: 100%;
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  font-size: clamp(1.4rem, 3vw, 3.2rem);
-  line-height: 0.95;
+  /* No overflow:hidden, no text-overflow, no flex-shrink — the current
+     price is always rendered in full. */
 }
 
 .product-original-price {
-  font-size: clamp(0.75rem, 1.2vw, 1.25rem);
+  font-size: 22px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .product-card__change {
-  flex-shrink: 1;
-  overflow: hidden;
+  flex: none;
+  margin-left: auto;
 }
 
 .product-card__change > span {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 20px;
+  padding: 8px 16px;
   white-space: nowrap;
 }
 
 .badges {
+  flex: none;
+  margin-top: 18px;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .badge {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  line-height: 1.1;
-  font-size: clamp(0.68rem, 1vw, 1rem);
+  font-size: 20px;
+  line-height: 1.15;
+  padding: 7px 16px;
+  white-space: nowrap;
 }
 
-@media (max-width: 1500px) {
-  .product-card {
-    min-height: clamp(175px, 23vh, 300px);
-    padding: clamp(10px, 1.2vw, 16px);
-  }
+/* ── Bottom ticker — inside the safe area, fixed height ────────────────── */
 
-  .product-card {
-    grid-template-columns: minmax(96px, 28%) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 1200px), (max-height: 800px) {
-  .exchange-header {
-    gap: 8px;
-  }
-
-  .product-card {
-    grid-template-columns: minmax(88px, 25%) minmax(0, 1fr);
-    min-height: clamp(155px, 22vh, 250px);
-    gap: 10px;
-  }
-
-  .product-card__image {
-    max-height: 100%;
-  }
-}
-
-@media (max-width: 1100px) {
-  .exchange-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .exchange-header__meta {
-    grid-column: 2;
-  }
-
-  .exchange-header__updated {
-    display: none;
-  }
-}
-
-@media (max-width: 900px), (max-height: 650px) {
-  .exchange-header,
-  .exchange-header__meta {
-    grid-template-columns: 1fr auto;
-  }
-
-  .exchange-header__brand {
-    gap: 10px;
-  }
-
-  .cards-grid {
-    grid-template-rows: repeat(2, minmax(140px, 1fr));
-  }
-
-  .product-card {
-    min-height: 140px;
-    grid-template-columns: minmax(72px, 24%) minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .product-name {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
-  }
-}
-
-@media (max-width: 600px) {
-  .exchange-header {
-    grid-template-columns: 1fr;
-  }
-
-  .exchange-header__meta {
-    grid-column: 1;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .exchange-header__clock {
-    margin-left: 0;
-  }
-
-  .cards-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-  }
-
-  .product-card {
-    min-height: 150px;
-    grid-template-columns: minmax(72px, 26%) minmax(0, 1fr);
-  }
+.exchange-ticker {
+  flex: none;
+  height: 56px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  padding-inline: 24px;
+  font-size: 20px;
 }

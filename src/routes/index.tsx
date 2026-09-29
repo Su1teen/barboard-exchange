@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -46,7 +46,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const PAGE_MS = 5000;
+const PAGE_MS = 10000;
 const PAGE_SIZE = 4;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -121,6 +121,186 @@ function roundLabel(roundKey: string | null | undefined): string {
   return roundKey;
 }
 
+// ── TV stage ───────────────────────────────────────────────────────────────
+
+/**
+ * Fixed logical canvas for the TV board. The whole dashboard is designed at
+ * exactly 1920×1080 and the outer viewport only applies a single uniform
+ * "contain" scale, centered with letterboxing. The composition is therefore
+ * identical at any window size, browser zoom level, or OS display scaling —
+ * a 1080p TV at 125% Windows scaling (1536×864 CSS px) simply gets the stage
+ * at scale 0.8 instead of a broken "responsive" layout.
+ */
+export const TV_STAGE_WIDTH = 1920;
+export const TV_STAGE_HEIGHT = 1080;
+
+type TvStageMetrics = { scale: number; offsetX: number; offsetY: number };
+
+/** Uniform "contain" scale + letterbox offsets for a viewport size. */
+function computeTvStageMetrics(width: number, height: number): TvStageMetrics {
+  const scale = Math.min(width / TV_STAGE_WIDTH, height / TV_STAGE_HEIGHT);
+  return {
+    scale,
+    offsetX: Math.max(0, (width - TV_STAGE_WIDTH * scale) / 2),
+    offsetY: Math.max(0, (height - TV_STAGE_HEIGHT * scale) / 2),
+  };
+}
+
+// SSR-safe layout effect: measure before the first paint on the client,
+// no-op warning-free on the server.
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+// ── Screen Wake Lock ────────────────────────────────────────────────────────
+
+/**
+ * Prevents the TV from sleeping while the dashboard is visible.
+ *
+ * Strategy (two-tier):
+ *  1. Screen Wake Lock API — the modern, clean solution. Reacquired whenever
+ *     the document becomes visible again (e.g. tab switch / screensaver wake).
+ *  2. Silent video fallback — a hidden <video> element playing a 1×1 px
+ *     transparent video loop. Some Smart TV browsers (Tizen, webOS) honour
+ *     this just like YouTube does. Zero visual/audio impact.
+ *
+ * Both paths are no-ops if the API or the playback are unavailable — the
+ * application never breaks due to missing browser support.
+ */
+function useWakeLock() {
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const useFallbackRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // ── Attempt Wake Lock API ──────────────────────────────────────────────
+    async function acquireWakeLock() {
+      // Already held — nothing to do.
+      if (wakeLockRef.current && !wakeLockRef.current.released) return;
+
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request("screen");
+          // Mark released when the browser releases it (e.g. tab hidden).
+          wakeLockRef.current.addEventListener("release", () => {
+            wakeLockRef.current = null;
+          });
+          return; // API succeeded — no need for fallback.
+        }
+      } catch {
+        // Permission denied or API error — fall through to video fallback.
+      }
+
+      // ── Video fallback ─────────────────────────────────────────────────
+      startVideoFallback();
+    }
+
+    function startVideoFallback() {
+      if (useFallbackRef.current) return; // already running
+      useFallbackRef.current = true;
+
+      try {
+        // Minimal 1-frame WebM (1×1 px, transparent, ~35 bytes) encoded as a
+        // data URL.  Browsers that cannot decode it simply ignore the element.
+        const TINY_WEBM =
+          "data:video/webm;base64," +
+          "GkXfowEAAAAAAAAfQoaBAUL3gQFC8oEEQvOBCEKChHdlYm1Ch4ECQoWBAhhTgGcBAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAVSalmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB9DtnQCgAAAAAAAAAAA" +
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+        const vid = document.createElement("video");
+        vid.src = TINY_WEBM;
+        vid.muted = true;
+        vid.loop = true;
+        vid.playsInline = true;
+        // Fully invisible, takes no layout space, produces no sound.
+        vid.style.cssText =
+          "position:fixed;top:-1px;left:-1px;width:1px;height:1px;opacity:0;pointer-events:none;";
+        document.body.appendChild(vid);
+        videoRef.current = vid;
+        vid.play().catch(() => {
+          // Autoplay blocked — fine, no crash. Some TVs allow it later.
+        });
+      } catch {
+        // Silently ignore any errors in the fallback.
+      }
+    }
+
+    // ── Reacquire on visibility change (e.g. after screensaver or tab switch) ──
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void acquireWakeLock();
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void acquireWakeLock();
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      // Release Wake Lock if held.
+      if (wakeLockRef.current && !wakeLockRef.current.released) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+      // Remove video fallback element.
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.remove();
+        videoRef.current = null;
+      }
+    };
+  }, []);
+}
+
+/**
+ * Tracks the real viewport (`window.innerWidth/innerHeight`, which already
+ * account for browser zoom and OS display scaling) and returns the stage
+ * transform. `null` until the first measurement so SSR/first paint fall
+ * back to the pure-CSS `--tv-scale` rule.
+ */
+function useTvStageMetrics(): TvStageMetrics | null {
+  const [metrics, setMetrics] = useState<TvStageMetrics | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const update = () => setMetrics(computeTvStageMetrics(window.innerWidth, window.innerHeight));
+    update();
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
+  }, []);
+
+  return metrics;
+}
+
+export function TvStage({ children }: { children: React.ReactNode }) {
+  const metrics = useTvStageMetrics();
+  return (
+    <div className="tv-viewport">
+      <div
+        className="tv-stage"
+        data-testid="tv-stage"
+        style={
+          metrics
+            ? {
+                transform: `translate(${metrics.offsetX}px, ${metrics.offsetY}px) scale(${metrics.scale})`,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ── Price movement indicator ───────────────────────────────────────────────
 
 type Trend = "up" | "down" | "flat";
@@ -145,7 +325,7 @@ function RoundChange({ product }: { product: PublicProduct }) {
 
   if (!hasPrevious && Math.abs(change) < 0.05) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-base font-bold text-white/40 ring-1 ring-white/10">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 font-bold text-white/40 ring-1 ring-white/10">
         <Sparkles className="size-4" strokeWidth={2.5} />
         Первый раунд
       </span>
@@ -163,7 +343,7 @@ function RoundChange({ product }: { product: PublicProduct }) {
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-base font-bold tabular-nums ring-1 ${tone}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full font-bold tabular-nums ring-1 ${tone}`}
     >
       <Icon className="size-5" strokeWidth={2.5} />
       {formatPercent(change)}
@@ -207,14 +387,14 @@ export function ProductCard({ product }: { product: PublicProduct }) {
 
   return (
     <article
-      className={`product-card relative rounded-2xl border p-4 backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
+      className={`product-card relative border backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
     >
       {/* Product image — always a valid local static import. */}
       <div className="product-card__image relative rounded-xl bg-white/[0.05] ring-1 ring-white/10">
         <img
           src={imageSrc}
           alt={product.name}
-          className="size-full object-cover"
+          className="size-full object-contain"
           loading="lazy"
           // Prevent any broken-image icon from ever showing — if the static
           // import somehow fails, hide the img element gracefully.
@@ -226,13 +406,9 @@ export function ProductCard({ product }: { product: PublicProduct }) {
 
       <div className="product-card__content">
         <div className="product-card__identity">
-          <p className="product-name text-2xl font-bold tracking-tight text-white/90">
-            {product.name}
-          </p>
+          <p className="product-name text-white/90">{product.name}</p>
           {product.category ? (
-            <span className="product-category text-sm font-semibold uppercase tracking-wide text-white/30">
-              {product.category}
-            </span>
+            <span className="product-category text-white/30">{product.category}</span>
           ) : null}
         </div>
 
@@ -257,7 +433,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
 
             {/* Original (menu) price — only when we have static metadata. */}
             {meta && (
-              <span className="product-original-price font-semibold tabular-nums text-white/35">
+              <span className="product-original-price font-semibold text-white/35">
                 обычная {formatPrice(meta.originalPrice)}
               </span>
             )}
@@ -272,7 +448,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         <div className="badges">
           {discount !== null && (
             <span
-              className={`badge inline-flex items-center rounded-full px-3 py-0.5 font-bold tabular-nums ring-1 ${
+              className={`badge inline-flex items-center rounded-full font-bold tabular-nums ring-1 ${
                 discount > 0
                   ? "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"
                   : discount < 0
@@ -289,7 +465,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
           )}
 
           {isMinPrice && (
-            <span className="badge inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-3 py-0.5 font-bold text-amber-200 ring-1 ring-amber-300/30">
+            <span className="badge inline-flex items-center gap-1 rounded-full bg-amber-400/10 font-bold text-amber-200 ring-1 ring-amber-300/30">
               <Flame className="size-4 shrink-0" strokeWidth={2.5} />
               Мин. цена
             </span>
@@ -349,7 +525,7 @@ function Ticker({
   const line = [...items, ...items, ...items];
 
   return (
-    <div className="relative overflow-hidden border-t border-white/10 bg-white/[0.04] py-2.5 backdrop-blur-2xl">
+    <div className="exchange-ticker relative z-30 border border-white/10 bg-white/[0.04] backdrop-blur-2xl">
       <motion.div
         className="flex w-max items-center gap-12 whitespace-nowrap"
         animate={{ x: ["0%", "-33.333%"] }}
@@ -358,7 +534,7 @@ function Ticker({
         {line.map((item, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-3 text-lg font-bold uppercase tracking-[0.18em] text-white/40"
+            className="inline-flex items-center gap-3 font-bold uppercase tracking-[0.18em] text-white/40"
           >
             <item.icon className="size-5 text-amber-200/50" strokeWidth={2.5} />
             {item.content}
@@ -385,16 +561,11 @@ function CenteredMessage({
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-10 text-center">
       <Icon className="size-12 text-white/40" strokeWidth={2} />
-      <p className="text-3xl font-extrabold tracking-tight text-white/90">{title}</p>
-      {subtitle ? <p className="max-w-xl text-lg font-semibold text-white/45">{subtitle}</p> : null}
+      <p className="text-4xl font-extrabold tracking-tight text-white/90">{title}</p>
+      {subtitle ? <p className="max-w-xl text-xl font-semibold text-white/45">{subtitle}</p> : null}
       {action}
     </div>
   );
-}
-
-/** Always display a 2×2 grid optimized for TV */
-function gridClasses(): string {
-  return "cards-grid";
 }
 
 // ── Page component ─────────────────────────────────────────────────────────
@@ -428,140 +599,139 @@ function Index() {
   const visibleItems = products.slice(safePageIndex * PAGE_SIZE, (safePageIndex + 1) * PAGE_SIZE);
 
   const clock = useClock(10000);
+  useWakeLock();
   const roundOpen = data?.roundStatus === "ok" && (data?.round ?? null) !== null;
   const nextStartsAt = data?.nextRound?.startsAt ?? null;
   const countdown = useCountdown(nextStartsAt);
   const countdownLabel = formatCountdown(countdown);
 
   return (
-    <main className="main-layout relative flex min-h-screen w-full flex-col bg-[#07080c] font-display text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_15%_-10%,rgba(120,140,190,0.22),transparent_60%),radial-gradient(90%_70%_at_100%_110%,rgba(190,150,110,0.14),transparent_60%)]" />
+    <TvStage>
+      <main className="main-layout relative bg-[#07080c] font-display text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_15%_-10%,rgba(120,140,190,0.22),transparent_60%),radial-gradient(90%_70%_at_100%_110%,rgba(190,150,110,0.14),transparent_60%)]" />
 
-      <header className="exchange-header relative z-30 px-10 pt-4 pb-3">
-        <div className="exchange-header__brand flex items-baseline gap-5">
-          <h1 className="text-3xl font-extrabold tracking-tight">
-            XOXO <span className="text-white/45">Exchange</span>
-          </h1>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-0.5 text-xs font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
-            {isRefreshing ? <RefreshCw className="size-3 animate-spin" strokeWidth={3} /> : null}
-            Live
-          </span>
-        </div>
+        <header className="exchange-header relative z-30">
+          <div className="exchange-header__brand">
+            <h1 className="exchange-header__title font-extrabold tracking-tight">
+              XOXO <span className="text-white/45">Exchange</span>
+            </h1>
+            <span className="exchange-header__live inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
+              {isRefreshing ? <RefreshCw className="size-3 animate-spin" strokeWidth={3} /> : null}
+              Live
+            </span>
+          </div>
 
-        <div className="exchange-header__meta flex items-center gap-3 text-sm font-semibold text-white/55">
-          <span className="exchange-header__round">
-            <RoundBadge
-              roundKey={data?.round?.roundKey ?? null}
-              roundOpen={roundOpen}
-              endsAt={data?.round?.endsAt ?? null}
-              countdownLabel={countdownLabel}
-            />
-          </span>
-          <span className="exchange-header__updated rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 tabular-nums">
-            обн. {formatUpdated(lastUpdatedAt)}
-          </span>
-          <span className="exchange-header__clock ml-1 text-xl font-extrabold tabular-nums text-white/70">
-            {clock}
-          </span>
-        </div>
-      </header>
+          <div className="exchange-header__meta font-semibold text-white/55">
+            <span className="exchange-header__round">
+              <RoundBadge
+                roundKey={data?.round?.roundKey ?? null}
+                roundOpen={roundOpen}
+                endsAt={data?.round?.endsAt ?? null}
+                countdownLabel={countdownLabel}
+              />
+            </span>
+            <span className="exchange-header__updated rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 tabular-nums">
+              обн. {formatUpdated(lastUpdatedAt)}
+            </span>
+            <span className="exchange-header__clock tabular-nums text-white/70">{clock}</span>
+          </div>
+        </header>
 
-      <AnimatePresence>
-        {isStale ? (
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-30 mx-10 mb-2 flex items-center justify-between gap-3 rounded-xl border border-amber-300/25 bg-amber-400/10 px-4 py-2 backdrop-blur-2xl"
-          >
-            <p className="text-base font-bold text-amber-100/90">
-              Данные не обновлены — показаны последние полученные котировки.
-            </p>
-            <button
-              type="button"
-              onClick={retry}
-              className="inline-flex items-center gap-2 rounded-full bg-amber-300/15 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-amber-100 ring-1 ring-amber-300/30 transition-colors hover:bg-amber-300/25"
+        <AnimatePresence>
+          {isStale ? (
+            <motion.div
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="stale-banner relative z-30 rounded-xl border border-amber-300/25 bg-amber-400/10 backdrop-blur-2xl"
             >
-              <RefreshCw className="size-4" strokeWidth={2.5} />
-              Повторить
-            </button>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <section className="relative z-10 min-h-0 flex-1 px-10 pb-4">
-        {isLoading ? (
-          <CenteredMessage
-            icon={RefreshCw}
-            title="Загрузка биржи…"
-            subtitle="Получаем живые котировки напитков"
-          />
-        ) : error && !data ? (
-          <CenteredMessage
-            icon={TrendingDown}
-            title="Биржа недоступна"
-            subtitle={error}
-            action={
+              <p className="font-bold text-amber-100/90">
+                Данные не обновлены — показаны последние полученные котировки.
+              </p>
               <button
                 type="button"
                 onClick={retry}
-                className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-base font-bold text-white ring-1 ring-white/20 transition-colors hover:bg-white/20"
+                className="inline-flex items-center gap-2 rounded-full bg-amber-300/15 px-4 py-1.5 font-bold uppercase tracking-wide text-amber-100 ring-1 ring-amber-300/30 transition-colors hover:bg-amber-300/25"
               >
-                <RefreshCw className="size-5" strokeWidth={2.5} />
-                Повторить запрос
+                <RefreshCw className="size-4" strokeWidth={2.5} />
+                Повторить
               </button>
-            }
-          />
-        ) : products.length === 0 ? (
-          <CenteredMessage
-            icon={Clock}
-            title="Биржа скоро откроется"
-            subtitle={
-              roundOpen
-                ? "Активные котировки появятся с началом раунда"
-                : `Следующий раунд через ${countdownLabel}`
-            }
-          />
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={safePageIndex}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex h-full flex-col"
-            >
-              <div className="mb-3 flex min-h-0 items-center gap-4">
-                {totalPages > 1 && (
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <span
-                        key={i}
-                        className={`block size-2 rounded-full transition-all duration-500 ${
-                          i === safePageIndex ? "bg-white/70 scale-125" : "bg-white/20"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className={`grid min-h-0 flex-1 gap-4 ${gridClasses()}`}>
-                {visibleItems.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
             </motion.div>
-          </AnimatePresence>
-        )}
-      </section>
+          ) : null}
+        </AnimatePresence>
 
-      <div className="relative z-30">
+        <section className="exchange-content relative z-10">
+          {isLoading ? (
+            <CenteredMessage
+              icon={RefreshCw}
+              title="Загрузка биржи…"
+              subtitle="Получаем живые котировки напитков"
+            />
+          ) : error && !data ? (
+            <CenteredMessage
+              icon={TrendingDown}
+              title="Биржа недоступна"
+              subtitle={error}
+              action={
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-base font-bold text-white ring-1 ring-white/20 transition-colors hover:bg-white/20"
+                >
+                  <RefreshCw className="size-5" strokeWidth={2.5} />
+                  Повторить запрос
+                </button>
+              }
+            />
+          ) : products.length === 0 ? (
+            <CenteredMessage
+              icon={Clock}
+              title="Биржа скоро откроется"
+              subtitle={
+                roundOpen
+                  ? "Активные котировки появятся с началом раунда"
+                  : `Следующий раунд через ${countdownLabel}`
+              }
+            />
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={safePageIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="flex h-full flex-col"
+              >
+                <div className="page-dots">
+                  {totalPages > 1 && (
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {Array.from({ length: totalPages }, (_, i) => (
+                        <span
+                          key={i}
+                          className={`block size-3 rounded-full transition-all duration-500 ${
+                            i === safePageIndex ? "bg-white/70 scale-125" : "bg-white/20"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="cards-grid">
+                  {visibleItems.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </section>
+
         <Ticker products={products} roundOpen={roundOpen} countdownLabel={countdownLabel} />
-      </div>
-    </main>
+      </main>
+    </TvStage>
   );
 }
 
