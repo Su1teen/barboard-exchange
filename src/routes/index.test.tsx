@@ -1,11 +1,15 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { cleanup, render, screen } from "@testing-library/react";
+import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { PublicProduct } from "@/lib/api";
 import { formatDiscount, formatPrice } from "@/lib/format";
 import { PRODUCT_IMAGES } from "@/lib/products";
 
-import { ProductCard, RoundBadge } from "@/routes/index";
+import { ProductCard, RoundBadge, TvStage } from "@/routes/index";
 
 const makeProduct = (overrides: Partial<PublicProduct> = {}): PublicProduct => ({
   id: "p1",
@@ -316,5 +320,237 @@ describe("ProductCard category display", () => {
       <ProductCard product={makeProduct({ name: "Jameson", category: "Крепкий алкоголь" })} />,
     );
     expect(screen.getByText("Крепкий алкоголь")).toBeInTheDocument();
+  });
+});
+
+// ── TV stage scaling ─────────────────────────────────────────────────────────
+
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    writable: true,
+    value: height,
+  });
+}
+
+function stageTransform(el: HTMLElement): { x: number; y: number; scale: number } {
+  const style = el.getAttribute("style") ?? "";
+  const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(style);
+  expect(m, `expected a stage transform, got "${style}"`).not.toBeNull();
+  return { x: Number(m![1]), y: Number(m![2]), scale: Number(m![3]) };
+}
+
+describe("TvStage", () => {
+  const VIEWPORTS: [number, number][] = [
+    [1920, 1080],
+    [1366, 768],
+    [1280, 720],
+    [3840, 2160],
+    // Typical Windows desktop at 125% scaling on a 1080p panel.
+    [1536, 864],
+  ];
+
+  it.each(VIEWPORTS)("fits the 1920×1080 canvas into %i×%i", (w, h) => {
+    setViewport(w, h);
+    render(
+      <TvStage>
+        <div />
+      </TvStage>,
+    );
+    const stage = screen.getByTestId("tv-stage");
+    const { x, y, scale } = stageTransform(stage);
+
+    const expectedScale = Math.min(w / 1920, h / 1080);
+    expect(scale).toBeCloseTo(expectedScale, 6);
+    // Scaled canvas never exceeds the viewport on either axis.
+    expect(1920 * scale).toBeLessThanOrEqual(w + 0.5);
+    expect(1080 * scale).toBeLessThanOrEqual(h + 0.5);
+    // Letterbox offsets center the stage.
+    expect(x).toBeCloseTo((w - 1920 * scale) / 2, 1);
+    expect(y).toBeCloseTo((h - 1080 * scale) / 2, 1);
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps a 16:9 letterboxed stage on a 4:3 viewport", () => {
+    setViewport(1024, 768);
+    render(
+      <TvStage>
+        <div />
+      </TvStage>,
+    );
+    const { x, y, scale } = stageTransform(screen.getByTestId("tv-stage"));
+    expect(scale).toBeCloseTo(1024 / 1920, 6);
+    expect(x).toBeCloseTo(0, 1);
+    expect(y).toBeCloseTo(96, 1); // vertical letterbox
+  });
+
+  it("recomputes the transform on window resize", () => {
+    setViewport(1920, 1080);
+    render(
+      <TvStage>
+        <div />
+      </TvStage>,
+    );
+    const stage = screen.getByTestId("tv-stage");
+    expect(stageTransform(stage).scale).toBeCloseTo(1, 6);
+
+    setViewport(1536, 864);
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(stageTransform(stage).scale).toBeCloseTo(0.8, 6);
+  });
+});
+
+// ── CSS regression contracts (financial values must never truncate) ──────────
+
+const cssSource = readFileSync(path.resolve(process.cwd(), "src/styles.css"), "utf8").replace(
+  /\/\*[^]*?\*\//g,
+  "",
+);
+
+/** Concatenate all declaration blocks for a selector (e.g. ".product-price"). */
+function cssRule(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "g");
+  return [...cssSource.matchAll(re)].map((m) => m[1]).join("\n");
+}
+
+describe("TV layout CSS contracts", () => {
+  it("defines a fixed 1920×1080 stage", () => {
+    const stage = cssRule(".tv-stage");
+    expect(stage).toContain("width: 1920px");
+    expect(stage).toContain("height: 1080px");
+    expect(stage).toContain("transform-origin");
+  });
+
+  it("has no viewport media queries that could reshuffle the board", () => {
+    // The composition is fixed inside the stage; the viewport only scales it.
+    expect(cssSource).not.toMatch(/@media\s*\(/);
+  });
+
+  it("never truncates or shrinks the current price", () => {
+    const price = cssRule(".product-price");
+    expect(price).not.toContain("text-overflow");
+    expect(price).not.toContain("overflow");
+    expect(price).not.toMatch(/font-size:\s*clamp|vw|vh/);
+    expect(price).toContain("white-space: nowrap");
+    expect(price).toContain("tabular-nums");
+  });
+
+  it("never ellipsizes the prices column or the round-change badge", () => {
+    const prices = cssRule(".product-card__prices");
+    expect(prices).not.toContain("text-overflow");
+    expect(prices).not.toContain("overflow");
+    expect(prices).toContain("flex: none");
+
+    // No wildcard ellipsis helper on price children.
+    expect(cssSource).not.toMatch(/\.product-card__prices\s*>\s*\*/);
+
+    const change = cssRule(".product-card__change");
+    expect(change).not.toContain("text-overflow");
+    const changeSpan = cssRule(".product-card__change > span");
+    expect(changeSpan).not.toContain("text-overflow");
+    expect(changeSpan).not.toContain("overflow");
+  });
+
+  it("keeps the original price fully visible", () => {
+    const original = cssRule(".product-original-price");
+    expect(original).not.toContain("text-overflow");
+    expect(original).not.toContain("overflow");
+    expect(original).toContain("white-space: nowrap");
+  });
+});
+
+// ── Long / large financial data renders in full ─────────────────────────────
+
+describe("ProductCard long data rendering", () => {
+  it("renders a 5-digit price in full (12 990 ₸)", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          id: "monkey-shoulder",
+          name: "Monkey Shoulder",
+          category: "Крепкий алкоголь",
+          price: 12990,
+          previousPrice: 11000,
+          changePercent: 18.1,
+        })}
+      />,
+    );
+    const price = document.querySelector(".product-price");
+    expect(price).toBeInTheDocument();
+    expect(price!.textContent).toBe(formatPrice(12990));
+    expect(screen.getByText("обычная 3 500 ₸")).toBeInTheDocument();
+    // Price above the original menu price → markup badge, shown in full.
+    expect(screen.getByText(/Наценка/)).toBeInTheDocument();
+  });
+
+  it("renders the full discount case (2 490 ₸ vs обычная 3 500 ₸ → −28.9%)", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          id: "monkey-shoulder",
+          name: "Monkey Shoulder",
+          category: "Крепкий алкоголь",
+          price: 2490,
+          previousPrice: 3200,
+          changePercent: -22.2,
+        })}
+      />,
+    );
+    expect(document.querySelector(".product-price")!.textContent).toBe(formatPrice(2490));
+    expect(screen.getByText("обычная 3 500 ₸")).toBeInTheDocument();
+    // 3500 → 2490 is a 28.857% discount — the badge must show it in full.
+    expect(screen.getByText(/Скидка/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        new RegExp(
+          formatDiscount(((3500 - 2490) / 3500) * 100).replace(/[-.*+?^${}()|[\]\\]/g, "\\$&"),
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders cocktail names and categories without breaking the card", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          id: "red-bull-whiskey",
+          name: "Red Bull Whiskey",
+          category: "Коктейли",
+          price: 2190,
+          previousPrice: 3200,
+          changePercent: -31.5,
+        })}
+      />,
+    );
+    expect(document.querySelector(".product-price")!.textContent).toBe(formatPrice(2190));
+    expect(screen.getByText("обычная 3 200 ₸")).toBeInTheDocument();
+    // "Мин. цена" — 2190 ≤ 2190 minPrice.
+    expect(screen.getByText("Мин. цена")).toBeInTheDocument();
+  });
+
+  it("keeps the round-change badge outside the prices column", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ price: 2490, previousPrice: 2000, changePercent: 24.5 })}
+      />,
+    );
+    const row = document.querySelector(".product-card__price-row");
+    expect(row).toBeInTheDocument();
+    // The badge is a sibling of the prices stack — it can never squeeze the
+    // current price into an ellipsis.
+    expect(row!.querySelector(".product-card__prices > .product-card__change")).toBeNull();
+    expect(row!.querySelector(":scope > .product-card__change")).not.toBeNull();
+    expect(row!.querySelector(".product-card__prices .product-price")!.textContent).toBe(
+      formatPrice(2490),
+    );
   });
 });
