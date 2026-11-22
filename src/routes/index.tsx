@@ -158,9 +158,10 @@ const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : us
  * Strategy (two-tier):
  *  1. Screen Wake Lock API — the modern, clean solution. Reacquired whenever
  *     the document becomes visible again (e.g. tab switch / screensaver wake).
- *  2. Silent video fallback — a hidden <video> element playing a 1×1 px
- *     transparent video loop. Some Smart TV browsers (Tizen, webOS) honour
- *     this just like YouTube does. Zero visual/audio impact.
+ *  2. Silent video — an invisible <video> playing a canvas-generated stream
+ *     (always on, re-kicked every 30 s). Smart TV browsers (Tizen, webOS)
+ *     that ignore the Wake Lock API still keep the screen on for playing
+ *     video, like YouTube. Zero visual/audio impact.
  *
  * Both paths are no-ops if the API or the playback are unavailable — the
  * application never breaks due to missing browser support.
@@ -172,6 +173,7 @@ function useWakeLock() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let paintTimer: number | undefined;
 
     // ── Attempt Wake Lock API ──────────────────────────────────────────────
     async function acquireWakeLock() {
@@ -185,7 +187,7 @@ function useWakeLock() {
           wakeLockRef.current.addEventListener("release", () => {
             wakeLockRef.current = null;
           });
-          return; // API succeeded — no need for fallback.
+          return;
         }
       } catch {
         // Permission denied or API error — fall through to video fallback.
@@ -196,34 +198,45 @@ function useWakeLock() {
     }
 
     function startVideoFallback() {
-      if (useFallbackRef.current) return; // already running
-      useFallbackRef.current = true;
+      if (useFallbackRef.current) {
+        // Already running — just make sure playback did not stall.
+        void videoRef.current?.play().catch(() => {});
+        return;
+      }
 
       try {
-        // Minimal 1-frame WebM (1×1 px, transparent, ~35 bytes) encoded as a
-        // data URL.  Browsers that cannot decode it simply ignore the element.
-        const TINY_WEBM =
-          "data:video/webm;base64," +
-          "GkXfowEAAAAAAAAfQoaBAUL3gQFC8oEEQvOBCEKChHdlYm1Ch4ECQoWBAhhTgGcBAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAVSalmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB9DtnQCgAAAAAAAAAAA" +
-          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        // A real, endlessly playing video track generated from a tiny canvas
+        // (no media file to decode). The canvas is repainted once a second so
+        // the stream never goes idle. Browsers keep the screen awake for a
+        // playing, on-screen video; it sits full-size behind the board with
+        // opacity 0, so guests never see it.
+        const canvas = document.createElement("canvas");
+        canvas.width = 2;
+        canvas.height = 2;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || typeof canvas.captureStream !== "function") return;
+        let tick = 0;
+        const paint = () => {
+          tick = (tick + 1) % 2;
+          ctx.fillStyle = tick ? "#000" : "#010101";
+          ctx.fillRect(0, 0, 2, 2);
+        };
+        paint();
+        paintTimer = window.setInterval(paint, 1000);
 
         const vid = document.createElement("video");
-        vid.src = TINY_WEBM;
+        vid.srcObject = canvas.captureStream(1);
         vid.muted = true;
         vid.loop = true;
         vid.playsInline = true;
-        // Fully invisible, takes no layout space, produces no sound.
+        vid.setAttribute("aria-hidden", "true");
         vid.style.cssText =
-          "position:fixed;top:-1px;left:-1px;width:1px;height:1px;opacity:0;pointer-events:none;";
+          "position:fixed;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;z-index:-1;";
         document.body.appendChild(vid);
         videoRef.current = vid;
+        useFallbackRef.current = true;
         vid.play().catch(() => {
-          // Autoplay blocked — fine, no crash. Some TVs allow it later.
+          // Autoplay blocked — retried on the next tick / remote key press.
         });
       } catch {
         // Silently ignore any errors in the fallback.
@@ -236,12 +249,33 @@ function useWakeLock() {
         void acquireWakeLock();
       }
     }
+    // Some TV browsers grant wake lock / autoplay only after a remote press.
+    const onInteraction = () => void acquireWakeLock();
 
     document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("fullscreenchange", onInteraction);
+    window.addEventListener("keydown", onInteraction);
+    window.addEventListener("pointerdown", onInteraction);
+    // The system may silently drop the lock (power policy) while the page
+    // stays visible — re-check periodically.
+    const recheckTimer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void acquireWakeLock();
+      startVideoFallback();
+    }, 30_000);
     void acquireWakeLock();
+    // Belt and braces: TV browsers often expose the Wake Lock API but ignore
+    // it, so the playing-video fallback runs regardless.
+    startVideoFallback();
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("fullscreenchange", onInteraction);
+      window.removeEventListener("keydown", onInteraction);
+      window.removeEventListener("pointerdown", onInteraction);
+      window.clearInterval(recheckTimer);
+      if (paintTimer !== undefined) window.clearInterval(paintTimer);
+      useFallbackRef.current = false;
       // Release Wake Lock if held.
       if (wakeLockRef.current && !wakeLockRef.current.released) {
         wakeLockRef.current.release().catch(() => {});
