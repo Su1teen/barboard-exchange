@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { children: POLYFILL_SCRIPT },
       // The legacy renderer must talk to exactly the same API as the main app,
       // whatever env the separate legacy build saw.
-      { children: `window.__API_URL__=${JSON.stringify(API_URL).replace(/</g, "\u003c")};` },
+      { children: `window.__API_URL__=${JSON.stringify(API_URL).split("<").join("\u003c")};` },
       { children: LEGACY_WATCHDOG_SCRIPT },
     ],
     links: [
