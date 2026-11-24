@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { POLYFILL_SCRIPT } from "../lib/polyfills";
 
 function NotFoundComponent() {
   return (
@@ -86,6 +87,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
     ],
+    // Runs before any bundled code so old set-top browsers get the APIs the
+    // router/hydration code needs while the entry module is still evaluating.
+    scripts: [{ children: POLYFILL_SCRIPT }],
     links: [
       {
         rel: "stylesheet",
