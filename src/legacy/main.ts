@@ -14,7 +14,7 @@
  */
 
 import type { PublicProduct } from "@/lib/api";
-import { discountPercent, formatDiscount, formatPercent, roundTo10 } from "@/lib/format";
+import { roundTo10 } from "@/lib/format";
 import { resolveProductImage, resolveProductMeta } from "@/lib/products";
 
 /* eslint-disable @typescript-eslint/no-explicit-any, no-var, prefer-const */
@@ -233,20 +233,6 @@ function load(): void {
 
 // ── Rendering ──────────────────────────────────────────────────────────────
 
-function roundChangeHtml(p: PublicProduct): string {
-  var hasPrev = p.previousPrice !== null && p.previousPrice !== undefined;
-  var change = p.changePercent;
-  if (!hasPrev && Math.abs(change) < 0.05) {
-    return (
-      '<span class="pill pill--flat pill--dim">' + icon("sparkles", 16) + "Первый раунд</span>"
-    );
-  }
-  var trend = change > 0.05 ? "up" : change < -0.05 ? "down" : "flat";
-  var tone = trend === "flat" ? "pill--flat" : trend === "down" ? "pill--good" : "pill--bad";
-  var ic = trend === "flat" ? "minus" : trend === "down" ? "down" : "up";
-  return '<span class="pill ' + tone + '">' + icon(ic, 20) + esc(formatPercent(change)) + "</span>";
-}
-
 function cardHtml(p: PublicProduct): string {
   var trend = p.changePercent > 0.05 ? "up" : p.changePercent < -0.05 ? "down" : "flat";
   var current = roundTo10(p.price);
@@ -258,7 +244,6 @@ function cardHtml(p: PublicProduct): string {
   var minPrice = p.minPrice !== undefined ? p.minPrice : meta ? meta.minPrice : null;
   var level = typeof p.priceLevelPercent === "number" ? p.priceLevelPercent : null;
   var img = resolveProductImage(p);
-  var discount = originalPrice !== null ? discountPercent(originalPrice, p.price) : null;
   var isMin = minPrice !== null && p.price <= minPrice;
   var priceValid = typeof p.price === "number" && isFinite(p.price);
 
@@ -268,21 +253,11 @@ function cardHtml(p: PublicProduct): string {
   else if (p.changePercent > 4) cardClass = " product-card--spike";
 
   var badges = "";
-  if (discount !== null) {
-    badges +=
-      '<span class="badge pill ' +
-      (discount > 0 ? "pill--good" : discount < 0 ? "pill--bad" : "pill--flat") +
-      '">' +
-      (discount > 0
-        ? "Скидка " + esc(formatDiscount(discount))
-        : discount < 0
-          ? "Наценка " + esc(formatDiscount(discount))
-          : "0%") +
-      "</span>";
-  }
   if (level !== null) {
     badges +=
-      '<span class="badge product-level pill pill--flat" data-testid="price-level">Уровень ' +
+      '<span class="badge product-level pill ' +
+      (level > 0 ? "pill--bad" : "pill--good") +
+      '" data-testid="price-level">Уровень ' +
       (level > 0 ? "+" : "") +
       level +
       "%</span>";
@@ -316,8 +291,6 @@ function cardHtml(p: PublicProduct): string {
     (originalPrice !== null
       ? '<span class="product-original-price">обычная ' + esc(price(originalPrice)) + "</span>"
       : "") +
-    '</div><div class="product-card__change">' +
-    roundChangeHtml(p) +
     '</div></div><div class="badges">' +
     badges +
     "</div></div></article>"

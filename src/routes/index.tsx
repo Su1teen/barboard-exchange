@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Clock,
   Flame,
-  Minus,
   RefreshCw,
   Sparkles,
   TrendingDown,
@@ -14,13 +13,7 @@ import {
 } from "lucide-react";
 
 import type { PublicProduct } from "@/lib/api";
-import {
-  formatDiscount,
-  formatPercent,
-  formatPrice,
-  discountPercent,
-  roundTo10,
-} from "@/lib/format";
+import { formatPrice, roundTo10 } from "@/lib/format";
 import { resolveProductImage, resolveProductMeta, type ProductMeta } from "@/lib/products";
 import { POLL_INTERVAL_MS, useExchangeData } from "@/hooks/useExchangeData";
 
@@ -344,40 +337,6 @@ function trendOf(product: PublicProduct): Trend {
   return "flat";
 }
 
-/**
- * Round-change badge. Uses the backend `changePercent` as the authoritative
- * round change when present (|changePercent| > 0.05). When the backend reports
- * `changePercent === 0` but a `previousPrice` exists, the value is still 0 —
- * no movement. When `previousPrice` is null, the product is in its first
- * published round and we show "Первый раунд" instead of a percentage.
- */
-function RoundChange({ product }: { product: PublicProduct }) {
-  const hasPrevious = product.previousPrice !== null && product.previousPrice !== undefined;
-  const change = product.changePercent;
-  const trend: Trend = change > 0.05 ? "up" : change < -0.05 ? "down" : "flat";
-
-  if (!hasPrevious && Math.abs(change) < 0.05) {
-    return (
-      <span className="pill pill--flat pill--dim">
-        <Sparkles className="ico ico--16" strokeWidth={2.5} />
-        Первый раунд
-      </span>
-    );
-  }
-
-  const flat = trend === "flat";
-  const tone = flat ? "pill--flat" : trend === "down" ? "pill--good" : "pill--bad";
-
-  const Icon = flat ? Minus : trend === "down" ? ArrowDownRight : ArrowUpRight;
-
-  return (
-    <span className={`pill ${tone}`}>
-      <Icon className="ico ico--20" strokeWidth={2.5} />
-      {formatPercent(change)}
-    </span>
-  );
-}
-
 // ── Product card ───────────────────────────────────────────────────────────
 
 export function ProductCard({ product }: { product: PublicProduct }) {
@@ -399,7 +358,6 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const imageSrc = useMemo(() => resolveProductImage(product), [product]);
 
   // Discount from original price (independent from round changePercent).
-  const discount = originalPrice !== null ? discountPercent(originalPrice, product.price) : null;
   const isMinPrice = minPrice !== null && product.price <= minPrice;
 
   // Controlled error: if the API price is not a finite number, show a
@@ -457,30 +415,15 @@ export function ProductCard({ product }: { product: PublicProduct }) {
               <span className="product-original-price">обычная {formatPrice(originalPrice)}</span>
             )}
           </div>
-
-          <div className="product-card__change">
-            <RoundChange product={product} />
-          </div>
         </div>
 
         {/* Discount + min-price badges row. */}
         <div className="badges">
-          {discount !== null && (
-            <span
-              className={`badge pill ${
-                discount > 0 ? "pill--good" : discount < 0 ? "pill--bad" : "pill--flat"
-              }`}
-            >
-              {discount > 0
-                ? `Скидка ${formatDiscount(discount)}`
-                : discount < 0
-                  ? `Наценка ${formatDiscount(discount)}`
-                  : "0%"}
-            </span>
-          )}
-
           {level !== null && (
-            <span className="badge product-level pill pill--flat" data-testid="price-level">
+            <span
+              className={`badge product-level pill ${level > 0 ? "pill--bad" : "pill--good"}`}
+              data-testid="price-level"
+            >
               {`Уровень ${level > 0 ? "+" : ""}${level}%`}
             </span>
           )}

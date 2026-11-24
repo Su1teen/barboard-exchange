@@ -6,7 +6,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { PublicProduct } from "@/lib/api";
-import { formatDiscount, formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { PRODUCT_IMAGES } from "@/lib/products";
 
 import { ProductCard, RoundBadge, TvStage } from "@/routes/index";
@@ -144,56 +144,44 @@ describe("ProductCard image rendering", () => {
   });
 });
 
-// ── Discount rendering ──────────────────────────────────────────────────────
+// ── Price level (only exact 10% steps are shown) ───────────────────────────
 
-describe("ProductCard discount rendering", () => {
-  it("shows discount badge for Jameson 2000 → 1590 (20.5%)", () => {
-    render(<ProductCard product={makeProduct({ id: "jameson", name: "Jameson", price: 1590 })} />);
-    // Jameson originalPrice = 2000, currentPrice = 1590 → discount 20.5%
-    // The badge text is "Скидка −20.5%" — use a regex to match the discount value.
-    expect(screen.getByText(/Скидка/)).toBeInTheDocument();
-    expect(
-      screen.getByText(new RegExp(formatDiscount(20.5).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
-    ).toBeInTheDocument();
-    // Original price label is shown.
-    expect(screen.getByText(/обычная/)).toBeInTheDocument();
-  });
-
-  it("shows discount badge for Absolut 1450 → 990 (31.7%)", () => {
-    render(<ProductCard product={makeProduct({ id: "absolut", name: "Absolut", price: 990 })} />);
-    expect(
-      screen.getByText(new RegExp(formatDiscount(31.7).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
-    ).toBeInTheDocument();
-  });
-
-  it("shows 0% when currentPrice equals originalPrice", () => {
-    render(<ProductCard product={makeProduct({ id: "jameson", name: "Jameson", price: 2000 })} />);
-    // Jameson originalPrice = 2000, currentPrice = 2000 → 0% discount.
-    // The discount badge shows "0%" (from formatDiscount(0)).
-    expect(screen.getByText(/^0%$/)).toBeInTheDocument();
-  });
-
-  it("shows markup badge when currentPrice > originalPrice", () => {
-    render(<ProductCard product={makeProduct({ id: "jameson", name: "Jameson", price: 2500 })} />);
-    // 2000 → 2500 = -25% discount = markup
-    expect(screen.getByText(/Наценка/)).toBeInTheDocument();
-  });
-
-  it("discount is independent from changePercent — changePercent 0 still shows discount", () => {
+describe("ProductCard price level", () => {
+  it("shows the exact level in green and no inexact discount percent", () => {
     render(
       <ProductCard
         product={makeProduct({
           id: "jameson",
           name: "Jameson",
           price: 1590,
-          changePercent: 0,
+          priceLevelPercent: -20,
         })}
       />,
     );
-    // changePercent is 0, but discount from original (2000 → 1590) is 20.5%.
-    expect(
-      screen.getByText(new RegExp(formatDiscount(20.5).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
-    ).toBeInTheDocument();
+    const level = screen.getByTestId("price-level");
+    expect(level).toHaveTextContent("Уровень -20%");
+    expect(level.className).toContain("pill--good");
+    expect(screen.getByText(/обычная/)).toBeInTheDocument();
+    expect(screen.queryByText(/Скидка/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Наценка/)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/d+.d%/);
+  });
+
+  it("shows a positive level with a plus sign in the warning tone", () => {
+    render(<ProductCard product={makeProduct({ price: 2500, priceLevelPercent: 20 })} />);
+    const level = screen.getByTestId("price-level");
+    expect(level).toHaveTextContent("Уровень +20%");
+    expect(level.className).toContain("pill--bad");
+  });
+
+  it("shows level 0 without a sign", () => {
+    render(<ProductCard product={makeProduct({ price: 2000, priceLevelPercent: 0 })} />);
+    expect(screen.getByTestId("price-level")).toHaveTextContent("Уровень 0%");
+  });
+
+  it("renders no level badge when the API does not send one", () => {
+    render(<ProductCard product={makeProduct({ price: 1450 })} />);
+    expect(screen.queryByTestId("price-level")).not.toBeInTheDocument();
   });
 });
 
@@ -218,53 +206,27 @@ describe("ProductCard minimum price badge", () => {
   });
 });
 
-// ── Round change indicator ──────────────────────────────────────────────────
+// ── Round change is no longer shown as a percentage ────────────────────────
 
-describe("ProductCard round change indicator", () => {
-  it("shows Первый раунд when previousPrice is null and changePercent is 0", () => {
+describe("ProductCard round change", () => {
+  it("shows neither a round percentage nor 'Первый раунд'", () => {
     render(
       <ProductCard
-        product={makeProduct({
-          id: "jameson",
-          name: "Jameson",
-          previousPrice: null,
-          changePercent: 0,
-        })}
+        product={makeProduct({ price: 1750, previousPrice: 1590, changePercent: 10.1 })}
       />,
     );
-    expect(screen.getByText("Первый раунд")).toBeInTheDocument();
-  });
-
-  it("shows round change percentage when changePercent is non-zero", () => {
-    render(
-      <ProductCard
-        product={makeProduct({
-          id: "jameson",
-          name: "Jameson",
-          price: 1750,
-          previousPrice: 1590,
-          changePercent: 10.1,
-        })}
-      />,
-    );
-    expect(screen.getByText("+10.1%")).toBeInTheDocument();
-  });
-
-  it("shows 0% round change when changePercent is 0 but previousPrice exists", () => {
-    render(
-      <ProductCard
-        product={makeProduct({
-          id: "jameson",
-          name: "Jameson",
-          price: 1590,
-          previousPrice: 1590,
-          changePercent: 0,
-        })}
-      />,
-    );
-    // formatPercent(0) returns "0.0%" — the round-change badge shows this.
-    expect(screen.getByText("0.0%")).toBeInTheDocument();
+    expect(screen.queryByText("+10.1%")).not.toBeInTheDocument();
     expect(screen.queryByText("Первый раунд")).not.toBeInTheDocument();
+    expect(document.querySelector(".product-card__change")).toBeNull();
+  });
+
+  it("still colours the price by direction", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ price: 1750, previousPrice: 1590, changePercent: 10.1 })}
+      />,
+    );
+    expect(document.querySelector(".product-price")!.className).toContain("price--up");
   });
 });
 
@@ -488,11 +450,9 @@ describe("ProductCard long data rendering", () => {
     expect(price).toBeInTheDocument();
     expect(price!.textContent).toBe(formatPrice(12990));
     expect(screen.getByText("обычная 3 500 ₸")).toBeInTheDocument();
-    // Price above the original menu price → markup badge, shown in full.
-    expect(screen.getByText(/Наценка/)).toBeInTheDocument();
   });
 
-  it("renders the full discount case (2 490 ₸ vs обычная 3 500 ₸ → −28.9%)", () => {
+  it("renders the discounted price next to the original price", () => {
     render(
       <ProductCard
         product={makeProduct({
@@ -507,15 +467,6 @@ describe("ProductCard long data rendering", () => {
     );
     expect(document.querySelector(".product-price")!.textContent).toBe(formatPrice(2490));
     expect(screen.getByText("обычная 3 500 ₸")).toBeInTheDocument();
-    // 3500 → 2490 is a 28.857% discount — the badge must show it in full.
-    expect(screen.getByText(/Скидка/)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        new RegExp(
-          formatDiscount(((3500 - 2490) / 3500) * 100).replace(/[-.*+?^${}()|[\]\\]/g, "\\$&"),
-        ),
-      ),
-    ).toBeInTheDocument();
   });
 
   it("renders cocktail names and categories without breaking the card", () => {
@@ -537,7 +488,7 @@ describe("ProductCard long data rendering", () => {
     expect(screen.getByText("Мин. цена")).toBeInTheDocument();
   });
 
-  it("keeps the round-change badge outside the prices column", () => {
+  it("keeps the price row free of percentage badges", () => {
     render(
       <ProductCard
         product={makeProduct({ price: 2490, previousPrice: 2000, changePercent: 24.5 })}
@@ -545,10 +496,7 @@ describe("ProductCard long data rendering", () => {
     );
     const row = document.querySelector(".product-card__price-row");
     expect(row).toBeInTheDocument();
-    // The badge is a sibling of the prices stack — it can never squeeze the
-    // current price into an ellipsis.
-    expect(row!.querySelector(".product-card__prices > .product-card__change")).toBeNull();
-    expect(row!.querySelector(":scope > .product-card__change")).not.toBeNull();
+    expect(row!.querySelector(".product-card__change")).toBeNull();
     expect(row!.querySelector(".product-card__prices .product-price")!.textContent).toBe(
       formatPrice(2490),
     );
