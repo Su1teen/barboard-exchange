@@ -74,3 +74,20 @@ export const POLYFILL_SCRIPT = `
   });
 })();
 `;
+
+/**
+ * Watchdog: if the React app has not reported ready (window.__tvReady, set in
+ * the Index route's mount effect) a few seconds after load — the bundle failed
+ * to parse/run on an old set-top browser — load the classic ES5 renderer that
+ * is built into /legacy/legacy.js. Plain ES5; harmless on modern browsers.
+ */
+export const LEGACY_WATCHDOG_SCRIPT = `
+(function () {
+  setTimeout(function () {
+    if (window.__tvReady) return;
+    var s = document.createElement("script");
+    s.src = "/legacy/legacy.js";
+    (document.body || document.documentElement).appendChild(s);
+  }, 5000);
+})();
+`;

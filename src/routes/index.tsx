@@ -612,6 +612,12 @@ function Index() {
   const safePageIndex = Math.min(pageIndex, totalPages - 1);
   const visibleItems = products.slice(safePageIndex * PAGE_SIZE, (safePageIndex + 1) * PAGE_SIZE);
 
+  // Tell the legacy-browser watchdog (see src/lib/polyfills.ts) that the modern
+  // app started, so the fallback renderer stays out of the way.
+  useEffect(() => {
+    (window as unknown as { __tvReady?: boolean }).__tvReady = true;
+  }, []);
+
   const clock = useClock(10000);
   useWakeLock();
   const roundOpen = data?.roundStatus === "ok" && (data?.round ?? null) !== null;
