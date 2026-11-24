@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
@@ -359,27 +358,21 @@ function RoundChange({ product }: { product: PublicProduct }) {
 
   if (!hasPrevious && Math.abs(change) < 0.05) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 font-bold text-white/40 ring-1 ring-white/10">
-        <Sparkles className="size-4" strokeWidth={2.5} />
+      <span className="pill pill--flat pill--dim">
+        <Sparkles className="ico ico--16" strokeWidth={2.5} />
         Первый раунд
       </span>
     );
   }
 
   const flat = trend === "flat";
-  const tone = flat
-    ? "bg-white/5 text-white/50 ring-white/10"
-    : trend === "down"
-      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"
-      : "bg-rose-400/10 text-rose-300 ring-rose-300/20";
+  const tone = flat ? "pill--flat" : trend === "down" ? "pill--good" : "pill--bad";
 
   const Icon = flat ? Minus : trend === "down" ? ArrowDownRight : ArrowUpRight;
 
   return (
-    <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full font-bold tabular-nums ring-1 ${tone}`}
-    >
-      <Icon className="size-5" strokeWidth={2.5} />
+    <span className={`pill ${tone}`}>
+      <Icon className="ico ico--20" strokeWidth={2.5} />
       {formatPercent(change)}
     </span>
   );
@@ -413,27 +406,22 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   // per-card error without breaking the rest of the grid.
   const priceValid = typeof product.price === "number" && Number.isFinite(product.price);
 
-  let priceColor = "text-white/60"; // flat
-  if (trend === "down") priceColor = "text-emerald-400";
-  else if (trend === "up") priceColor = "text-rose-400";
+  let priceColor = "price--flat"; // flat
+  if (trend === "down") priceColor = "price--down";
+  else if (trend === "up") priceColor = "price--up";
 
-  let cardClass = "border-white/10 bg-white/[0.04]";
-  if (product.changePercent < -4) {
-    cardClass = "border-green-500/20 bg-green-500/[0.03] shadow-[0_0_20px_rgba(34,197,94,0.08)]";
-  } else if (product.changePercent > 4) {
-    cardClass = "border-red-900/30 bg-black/40 shadow-[0_0_20px_rgba(239,68,68,0.08)]";
-  }
+  let cardClass = "";
+  if (product.changePercent < -4) cardClass = " product-card--drop";
+  else if (product.changePercent > 4) cardClass = " product-card--spike";
 
   return (
-    <article
-      className={`product-card relative border backdrop-blur-2xl transition-all duration-700 ${cardClass}`}
-    >
+    <article className={`product-card${cardClass}`}>
       {/* Product image — always a valid local static import. */}
-      <div className="product-card__image relative rounded-xl bg-white/[0.05] ring-1 ring-white/10">
+      <div className="product-card__image">
         <img
           src={imageSrc}
           alt={product.name}
-          className="size-full object-contain"
+          className="product-card__img"
           loading="lazy"
           // Prevent any broken-image icon from ever showing — if the static
           // import somehow fails, hide the img element gracefully.
@@ -445,36 +433,28 @@ export function ProductCard({ product }: { product: PublicProduct }) {
 
       <div className="product-card__content">
         <div className="product-card__identity">
-          <p className="product-name text-white/90">{product.name}</p>
-          {product.category ? (
-            <span className="product-category text-white/30">{product.category}</span>
-          ) : null}
+          <p className="product-name">{product.name}</p>
+          {product.category ? <span className="product-category">{product.category}</span> : null}
         </div>
 
         <div className="product-card__price-row">
           <div className="product-card__prices">
             {priceValid ? (
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={current}
-                  initial={{ opacity: 0, y: previous !== null && current < previous ? -8 : 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: previous !== null && current < previous ? 8 : -8 }}
-                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                  className={`product-price font-extrabold tabular-nums tracking-tight ${priceColor}`}
-                >
-                  {formatPrice(product.price)}
-                </motion.span>
-              </AnimatePresence>
+              <span
+                key={current}
+                className={`product-price ${priceColor} ${
+                  previous !== null && current < previous ? "price-pop--down" : "price-pop--up"
+                }`}
+              >
+                {formatPrice(product.price)}
+              </span>
             ) : (
-              <span className="product-price text-rose-300/80">Цена недоступна</span>
+              <span className="product-price price--bad">Цена недоступна</span>
             )}
 
             {/* Original (menu) price — from the API, else static metadata. */}
             {originalPrice !== null && (
-              <span className="product-original-price font-semibold tabular-nums text-white/35">
-                обычная {formatPrice(originalPrice)}
-              </span>
+              <span className="product-original-price">обычная {formatPrice(originalPrice)}</span>
             )}
           </div>
 
@@ -487,12 +467,8 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         <div className="badges">
           {discount !== null && (
             <span
-              className={`badge inline-flex items-center rounded-full font-bold tabular-nums ring-1 ${
-                discount > 0
-                  ? "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20"
-                  : discount < 0
-                    ? "bg-rose-400/10 text-rose-300 ring-rose-300/20"
-                    : "bg-white/5 text-white/50 ring-white/10"
+              className={`badge pill ${
+                discount > 0 ? "pill--good" : discount < 0 ? "pill--bad" : "pill--flat"
               }`}
             >
               {discount > 0
@@ -504,17 +480,14 @@ export function ProductCard({ product }: { product: PublicProduct }) {
           )}
 
           {level !== null && (
-            <span
-              className="badge product-level inline-flex items-center rounded-full bg-white/5 px-3 py-0.5 font-bold tabular-nums text-white/60 ring-1 ring-white/10"
-              data-testid="price-level"
-            >
+            <span className="badge product-level pill pill--flat" data-testid="price-level">
               {`Уровень ${level > 0 ? "+" : ""}${level}%`}
             </span>
           )}
 
           {isMinPrice && (
-            <span className="badge inline-flex items-center gap-1 rounded-full bg-amber-400/10 font-bold text-amber-200 ring-1 ring-amber-300/30">
-              <Flame className="size-4 shrink-0" strokeWidth={2.5} />
+            <span className="badge pill pill--amber">
+              <Flame className="ico ico--16" strokeWidth={2.5} />
               Мин. цена
             </span>
           )}
@@ -573,22 +546,15 @@ function Ticker({
   const line = [...items, ...items, ...items];
 
   return (
-    <div className="exchange-ticker relative z-30 border border-white/10 bg-white/[0.04] backdrop-blur-2xl">
-      <motion.div
-        className="flex w-max items-center gap-12 whitespace-nowrap"
-        animate={{ x: ["0%", "-33.333%"] }}
-        transition={{ duration: 38, ease: "linear", repeat: Infinity }}
-      >
+    <div className="exchange-ticker">
+      <div className="exchange-ticker__track">
         {line.map((item, i) => (
-          <span
-            key={i}
-            className="inline-flex items-center gap-3 font-bold uppercase tracking-[0.18em] text-white/40"
-          >
-            <item.icon className="size-5 text-amber-200/50" strokeWidth={2.5} />
+          <span key={i} className="exchange-ticker__item">
+            <item.icon className="ico ico--20 ico--amber" strokeWidth={2.5} />
             {item.content}
           </span>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -607,10 +573,10 @@ function CenteredMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-10 text-center">
-      <Icon className="size-12 text-white/40" strokeWidth={2} />
-      <p className="text-4xl font-extrabold tracking-tight text-white/90">{title}</p>
-      {subtitle ? <p className="max-w-xl text-xl font-semibold text-white/45">{subtitle}</p> : null}
+    <div className="center-message">
+      <Icon className="ico ico--48 center-message__icon" strokeWidth={2} />
+      <p className="center-message__title">{title}</p>
+      {subtitle ? <p className="center-message__subtitle">{subtitle}</p> : null}
       {action}
     </div>
   );
@@ -655,21 +621,21 @@ function Index() {
 
   return (
     <TvStage>
-      <main className="main-layout relative bg-[#07080c] font-display text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_15%_-10%,rgba(120,140,190,0.22),transparent_60%),radial-gradient(90%_70%_at_100%_110%,rgba(190,150,110,0.14),transparent_60%)]" />
+      <main className="main-layout">
+        <div className="main-layout__glow" />
 
-        <header className="exchange-header relative z-30">
+        <header className="exchange-header">
           <div className="exchange-header__brand">
-            <h1 className="exchange-header__title font-extrabold tracking-tight">
-              XOXO <span className="text-white/45">Exchange</span>
+            <h1 className="exchange-header__title">
+              XOXO <span className="exchange-header__title-dim">Exchange</span>
             </h1>
-            <span className="exchange-header__live inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] font-bold uppercase tracking-[0.24em] text-white/50 backdrop-blur-xl">
-              {isRefreshing ? <RefreshCw className="size-3 animate-spin" strokeWidth={3} /> : null}
+            <span className="exchange-header__live">
+              {isRefreshing ? <RefreshCw className="ico ico--12 spin" strokeWidth={3} /> : null}
               Live
             </span>
           </div>
 
-          <div className="exchange-header__meta font-semibold text-white/55">
+          <div className="exchange-header__meta">
             <span className="exchange-header__round">
               <RoundBadge
                 roundKey={data?.round?.roundKey ?? null}
@@ -678,38 +644,24 @@ function Index() {
                 countdownLabel={countdownLabel}
               />
             </span>
-            <span className="exchange-header__updated rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 tabular-nums">
-              обн. {formatUpdated(lastUpdatedAt)}
-            </span>
-            <span className="exchange-header__clock tabular-nums text-white/70">{clock}</span>
+            <span className="exchange-header__updated">обн. {formatUpdated(lastUpdatedAt)}</span>
+            <span className="exchange-header__clock">{clock}</span>
           </div>
         </header>
 
-        <AnimatePresence>
-          {isStale ? (
-            <motion.div
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="stale-banner relative z-30 rounded-xl border border-amber-300/25 bg-amber-400/10 backdrop-blur-2xl"
-            >
-              <p className="font-bold text-amber-100/90">
-                Данные не обновлены — показаны последние полученные котировки.
-              </p>
-              <button
-                type="button"
-                onClick={retry}
-                className="inline-flex items-center gap-2 rounded-full bg-amber-300/15 px-4 py-1.5 font-bold uppercase tracking-wide text-amber-100 ring-1 ring-amber-300/30 transition-colors hover:bg-amber-300/25"
-              >
-                <RefreshCw className="size-4" strokeWidth={2.5} />
-                Повторить
-              </button>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {isStale ? (
+          <div className="stale-banner fade-in">
+            <p className="stale-banner__text">
+              Данные не обновлены — показаны последние полученные котировки.
+            </p>
+            <button type="button" onClick={retry} className="stale-banner__button">
+              <RefreshCw className="ico ico--16" strokeWidth={2.5} />
+              Повторить
+            </button>
+          </div>
+        ) : null}
 
-        <section className="exchange-content relative z-10">
+        <section className="exchange-content">
           {isLoading ? (
             <CenteredMessage
               icon={RefreshCw}
@@ -722,12 +674,8 @@ function Index() {
               title="Биржа недоступна"
               subtitle={error}
               action={
-                <button
-                  type="button"
-                  onClick={retry}
-                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-base font-bold text-white ring-1 ring-white/20 transition-colors hover:bg-white/20"
-                >
-                  <RefreshCw className="size-5" strokeWidth={2.5} />
+                <button type="button" onClick={retry} className="center-message__button">
+                  <RefreshCw className="ico ico--20" strokeWidth={2.5} />
                   Повторить запрос
                 </button>
               }
@@ -743,37 +691,26 @@ function Index() {
               }
             />
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={safePageIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="flex h-full flex-col"
-              >
-                <div className="page-dots">
-                  {totalPages > 1 && (
-                    <div className="ml-auto flex items-center gap-1.5">
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <span
-                          key={i}
-                          className={`block size-3 rounded-full transition-all duration-500 ${
-                            i === safePageIndex ? "bg-white/70 scale-125" : "bg-white/20"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+            <div key={safePageIndex} className="page fade-in">
+              <div className="page-dots">
+                {totalPages > 1 && (
+                  <div className="page-dots__list">
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <span
+                        key={i}
+                        className={`page-dots__dot${i === safePageIndex ? " page-dots__dot--active" : ""}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                <div className="cards-grid">
-                  {visibleItems.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </motion.div>
-            </AnimatePresence>
+              <div className="cards-grid">
+                {visibleItems.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </div>
           )}
         </section>
 
@@ -795,18 +732,18 @@ export function RoundBadge({
   countdownLabel: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+    <span className="round-badge">
       {roundOpen ? (
         <>
-          <Flame className="size-4 text-amber-200/80" strokeWidth={2.5} />
-          <span className="tabular-nums">
+          <Flame className="ico ico--16 ico--amber" strokeWidth={2.5} />
+          <span className="round-badge__text">
             Раунд {roundLabel(roundKey)} · до {formatTime(endsAt)}
           </span>
         </>
       ) : (
         <>
-          <Clock className="size-4 text-white/50" strokeWidth={2.5} />
-          <span className="tabular-nums">След. раунд через {countdownLabel}</span>
+          <Clock className="ico ico--16 ico--dim" strokeWidth={2.5} />
+          <span className="round-badge__text">След. раунд через {countdownLabel}</span>
         </>
       )}
     </span>

@@ -7,6 +7,15 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    build: {
+      // Cheap set-top boxes run very old Chromium/WebView builds. Down-level
+      // the shipped JS (optional chaining, ??, class fields, ...) to ES2017 so
+      // the bundle at least parses there; src/lib/polyfills.ts covers the
+      // handful of newer runtime APIs.
+      target: "es2017",
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

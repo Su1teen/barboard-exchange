@@ -163,6 +163,18 @@
   }
 }
 
+/* Un-layered page reset: old browsers without @layer support drop the whole
+   Tailwind base layer above, so the essentials are repeated here. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #04050a;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    Guest TV board — fixed 1920×1080 logical stage.
 
@@ -174,13 +186,32 @@
    stage everything uses fixed pixels — no vw/vh/clamp, no media queries —
    so the layout is identical at any viewport size, browser zoom, or OS
    display scaling.
+
+   COMPATIBILITY: cheap set-top boxes ship old Chromium/WebView builds. The
+   board CSS below is deliberately plain, UN-LAYERED CSS 2/3: explicit rgba()
+   colors (no oklch / color-mix), top/left/right/bottom (no `inset`), margins
+   instead of flex `gap`, no backdrop-filter, no @layer, no Tailwind
+   utilities. Do not move it into Tailwind classes.
    ═══════════════════════════════════════════════════════════════════════ */
+
+.tv-viewport,
+.tv-viewport *,
+.tv-viewport *::before,
+.tv-viewport *::after {
+  box-sizing: border-box;
+}
 
 .tv-viewport {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   /* Letterbox backdrop for viewports whose aspect ratio differs from 16:9. */
+  background: #04050a;
   background:
     radial-gradient(120% 80% at 15% -10%, rgba(120, 140, 190, 0.12), transparent 60%),
     radial-gradient(90% 70% at 100% 110%, rgba(190, 150, 110, 0.08), transparent 60%), #04050a;
@@ -215,6 +246,133 @@
      critical content is placed closer than 48–64 px to the canvas edge. */
   padding: 48px 64px;
   overflow: hidden;
+  background-color: #07080c;
+  color: #fff;
+  font-family: "Manrope", "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.main-layout p,
+.main-layout h1 {
+  margin: 0;
+}
+
+.main-layout svg {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+
+.main-layout button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.main-layout__glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 15% -10%, rgba(120, 140, 190, 0.22), transparent 60%),
+    radial-gradient(90% 70% at 100% 110%, rgba(190, 150, 110, 0.14), transparent 60%);
+}
+
+/* Everything except the glow stacks above it. */
+.exchange-header,
+.stale-banner,
+.exchange-content,
+.exchange-ticker {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Icons ─────────────────────────────────────────────────────────────── */
+
+.ico--12 {
+  width: 12px;
+  height: 12px;
+}
+.ico--16 {
+  width: 16px;
+  height: 16px;
+}
+.ico--20 {
+  width: 20px;
+  height: 20px;
+}
+.ico--48 {
+  width: 48px;
+  height: 48px;
+}
+.ico--amber {
+  color: rgba(253, 230, 138, 0.7);
+}
+.ico--dim {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Animations (plain CSS keyframes, no JS animation library) ─────────── */
+
+@keyframes tv-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tv-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tv-pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tv-pop-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tv-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-33.333%);
+  }
+}
+
+.spin {
+  animation: tv-spin 1s linear infinite;
+}
+
+.fade-in {
+  animation: tv-fade-in 0.5s ease-in-out;
 }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
@@ -223,7 +381,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
   height: 72px;
   flex: none;
   min-width: 0;
@@ -232,29 +389,54 @@
 .exchange-header__brand {
   display: flex;
   align-items: center;
-  gap: 20px;
   flex: none;
   min-width: 0;
 }
 
 .exchange-header__title {
   font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1;
   white-space: nowrap;
 }
 
+.exchange-header__title-dim {
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .exchange-header__live {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 20px;
   font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.5);
   padding: 7px 16px;
   white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.exchange-header__live .spin {
+  margin-right: 6px;
 }
 
 .exchange-header__meta {
   display: flex;
   align-items: center;
-  gap: 16px;
   flex: none;
   white-space: nowrap;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.exchange-header__meta > * + * {
+  margin-left: 16px;
 }
 
 .exchange-header__round {
@@ -265,6 +447,11 @@
 .exchange-header__updated {
   font-size: 16px;
   white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+  font-variant-numeric: tabular-nums;
 }
 
 .exchange-header__clock {
@@ -272,9 +459,27 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: rgba(255, 255, 255, 0.7);
   /* Fixed-width slot — the clock never shifts the header layout. */
   min-width: 5ch;
   text-align: right;
+}
+
+.round-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.round-badge .ico {
+  margin-right: 8px;
+}
+
+.round-badge__text {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Stale-data banner (transient, in-flow) ────────────────────────────── */
@@ -286,20 +491,56 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
   padding: 0 20px;
   font-size: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(252, 211, 77, 0.25);
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.stale-banner__text {
+  font-weight: 700;
+  color: rgba(254, 243, 199, 0.9);
+}
+
+.stale-banner__button,
+.center-message__button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.stale-banner__button {
+  padding: 6px 16px;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: #fef3c7;
+  background-color: rgba(252, 211, 77, 0.15);
+  box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.3);
+}
+
+.stale-banner__button .ico,
+.center-message__button .ico {
+  margin-right: 8px;
 }
 
 /* ── Content zone ──────────────────────────────────────────────────────── */
 
 .exchange-content {
-  position: relative;
   flex: 1;
   min-height: 0;
   margin-top: 20px;
   display: flex;
   flex-direction: column;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .page-dots {
@@ -310,26 +551,63 @@
   align-items: center;
 }
 
+.page-dots__list {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.page-dots__dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.page-dots__dot--active {
+  background-color: rgba(255, 255, 255, 0.7);
+  transform: scale(1.25);
+}
+
 .cards-grid {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-gap: 24px;
   gap: 24px;
 }
 
 /* ── Product card ──────────────────────────────────────────────────────── */
 
 .product-card {
+  position: relative;
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
+  grid-gap: 24px;
   gap: 24px;
   padding: 24px;
   min-width: 0;
   min-height: 0;
   border-radius: 24px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.product-card--drop {
+  border-color: rgba(34, 197, 94, 0.2);
+  background-color: rgba(34, 197, 94, 0.03);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.08);
+}
+
+.product-card--spike {
+  border-color: rgba(127, 29, 29, 0.3);
+  background-color: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.08);
 }
 
 .product-card__image {
@@ -338,6 +616,16 @@
   min-height: 0;
   padding: 6px;
   overflow: hidden;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.product-card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .product-card__content {
@@ -357,12 +645,13 @@
   font-weight: 800;
   line-height: 1.12;
   letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.9);
   /* Controlled truncation is allowed only for the name: max two lines,
      never affecting the card height. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  max-height: calc(2 * 1.12em);
+  max-height: 2.24em;
   overflow: hidden;
 }
 
@@ -373,6 +662,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -388,18 +678,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
   min-width: 0;
 }
 
 .product-card__prices {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   flex: none;
+  margin-right: 20px;
 }
 
 .product-price {
+  display: block;
   font-size: 56px;
   font-weight: 800;
   line-height: 1;
@@ -410,11 +700,34 @@
      price is always rendered in full. */
 }
 
+.price--flat {
+  color: rgba(255, 255, 255, 0.6);
+}
+.price--down {
+  color: #34d399;
+}
+.price--up {
+  color: #fb7185;
+}
+.price--bad {
+  color: rgba(253, 164, 175, 0.8);
+}
+
+.price-pop--up {
+  animation: tv-pop-up 0.35s ease-out;
+}
+.price-pop--down {
+  animation: tv-pop-down 0.35s ease-out;
+}
+
 .product-original-price {
+  margin-top: 4px;
   font-size: 22px;
+  font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .product-card__change {
@@ -434,7 +747,6 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
   min-width: 0;
 }
 
@@ -443,6 +755,50 @@
   line-height: 1.15;
   padding: 7px 16px;
   white-space: nowrap;
+  margin-right: 12px;
+  margin-bottom: 6px;
+}
+
+/* Pills: round-change, discount, level and min-price badges. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.pill .ico {
+  margin-right: 6px;
+}
+
+.pill--flat {
+  color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.pill--dim {
+  color: rgba(255, 255, 255, 0.4);
+}
+.pill--good {
+  color: #6ee7b7;
+  background-color: rgba(52, 211, 153, 0.1);
+  box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.2);
+}
+.pill--bad {
+  color: #fda4af;
+  background-color: rgba(251, 113, 133, 0.1);
+  box-shadow: 0 0 0 1px rgba(253, 164, 175, 0.2);
+}
+.pill--amber {
+  color: #fde68a;
+  background-color: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.3);
+}
+.product-level {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ── Bottom ticker — inside the safe area, fixed height ────────────────── */
@@ -455,6 +811,76 @@
   align-items: center;
   overflow: hidden;
   border-radius: 18px;
-  padding-inline: 24px;
+  padding-left: 24px;
+  padding-right: 24px;
   font-size: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.exchange-ticker__track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  white-space: nowrap;
+  animation: tv-marquee 38s linear infinite;
+}
+
+.exchange-ticker__item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 48px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.exchange-ticker__item .ico {
+  margin-right: 12px;
+}
+
+/* ── Full-screen states ────────────────────────────────────────────────── */
+
+.center-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 40px;
+  text-align: center;
+}
+
+.center-message > * + * {
+  margin-top: 16px;
+}
+
+.center-message__icon {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.center-message__title {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.center-message__subtitle {
+  max-width: 576px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.center-message__button {
+  padding: 10px 24px;
+  font-size: 16px;
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
