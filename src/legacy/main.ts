@@ -130,9 +130,14 @@ var state = {
 
 // ── API ────────────────────────────────────────────────────────────────────
 
+function apiBase(): string {
+  const w = window as any;
+  return typeof w.__API_URL__ === "string" && w.__API_URL__ ? w.__API_URL__ : __API_URL__;
+}
+
 function getJson(path: string, cb: (err: number | null, body?: any) => void): void {
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", __API_URL__ + API_PREFIX + path, true);
+  xhr.open("GET", apiBase() + API_PREFIX + path, true);
   xhr.setRequestHeader("Accept", "application/json");
   xhr.timeout = 20000;
   xhr.onload = function () {
@@ -195,7 +200,7 @@ function load(): void {
       state.error = state.data
         ? null
         : currentErr === 0
-          ? "Не удалось связаться с биржей. Проверьте подключение."
+          ? "Не удалось связаться с биржей. Проверьте подключение. (" + apiBase() + ")"
           : currentErr
             ? "Ошибка биржи (" + currentErr + "). Повторите попытку позже."
             : "Не удалось получить данные биржи.";

@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { API_URL } from "../lib/api";
 import { LEGACY_WATCHDOG_SCRIPT, POLYFILL_SCRIPT } from "../lib/polyfills";
 
 function NotFoundComponent() {
@@ -89,7 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     // Runs before any bundled code so old set-top browsers get the APIs the
     // router/hydration code needs while the entry module is still evaluating.
-    scripts: [{ children: POLYFILL_SCRIPT }, { children: LEGACY_WATCHDOG_SCRIPT }],
+    scripts: [
+      { children: POLYFILL_SCRIPT },
+      // The legacy renderer must talk to exactly the same API as the main app,
+      // whatever env the separate legacy build saw.
+      { children: `window.__API_URL__=${JSON.stringify(API_URL).replace(/</g, "\u003c")};` },
+      { children: LEGACY_WATCHDOG_SCRIPT },
+    ],
     links: [
       {
         rel: "stylesheet",
