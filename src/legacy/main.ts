@@ -135,23 +135,55 @@ function apiBase(): string {
   return typeof w.__API_URL__ === "string" && w.__API_URL__ ? w.__API_URL__ : __API_URL__;
 }
 
+// Same-origin proxy first (always reachable and trusted by the old browser:
+// it is the origin that served this page), then the backend directly.
+function bases(): string[] {
+  const direct = apiBase();
+  return direct ? ["", direct] : [""];
+}
+
+var lastNetworkDetail = "";
+
 function getJson(path: string, cb: (err: number | null, body?: any) => void): void {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", apiBase() + API_PREFIX + path, true);
-  xhr.setRequestHeader("Accept", "application/json");
-  xhr.timeout = 20000;
-  xhr.onload = function () {
-    if (xhr.status < 200 || xhr.status >= 300) return cb(xhr.status);
+  var list = bases();
+  var attempt = function (i: number): void {
+    var base = list[i] as string;
+    var xhr = new XMLHttpRequest();
+    var finished = false;
+    var fail = function (status: number): void {
+      if (finished) return;
+      finished = true;
+      lastNetworkDetail = (base || "same-origin") + ": " + status;
+      if (i + 1 < list.length) return attempt(i + 1);
+      cb(status);
+    };
     try {
-      cb(null, JSON.parse(xhr.responseText));
+      xhr.open("GET", base + API_PREFIX + path, true);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.timeout = 15000;
     } catch (e) {
-      cb(xhr.status || 500);
+      return fail(0);
+    }
+    xhr.onload = function () {
+      if (xhr.status < 200 || xhr.status >= 300) return fail(xhr.status);
+      try {
+        var parsed = JSON.parse(xhr.responseText);
+        finished = true;
+        cb(null, parsed);
+      } catch (e) {
+        fail(xhr.status || 500);
+      }
+    };
+    xhr.onerror = xhr.ontimeout = function () {
+      fail(0);
+    };
+    try {
+      xhr.send();
+    } catch (e) {
+      fail(0);
     }
   };
-  xhr.onerror = xhr.ontimeout = function () {
-    cb(0);
-  };
-  xhr.send();
+  attempt(0);
 }
 
 function buildData(current: any, next: any, fallback: PublicProduct[]): Data {
@@ -200,7 +232,7 @@ function load(): void {
       state.error = state.data
         ? null
         : currentErr === 0
-          ? "Не удалось связаться с биржей. Проверьте подключение. (" + apiBase() + ")"
+          ? "Не удалось связаться с биржей. Проверьте подключение. (" + lastNetworkDetail + ")"
           : currentErr
             ? "Ошибка биржи (" + currentErr + "). Повторите попытку позже."
             : "Не удалось получить данные биржи.";

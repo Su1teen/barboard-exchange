@@ -105,10 +105,10 @@ function apiUrl(path: string): string {
   return `${API_URL}${API_PREFIX}${path}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestOnce<T>(base: string, path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(apiUrl(path), {
+    response = await fetch(`${base}${API_PREFIX}${path}`, {
       method: "GET",
       // Public endpoints require no cookies/auth — keep the request
       // CORS-friendly by omitting credentials.
@@ -133,6 +133,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       response.status,
       path,
     );
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await requestOnce<T>(API_URL, path, init);
+  } catch (error) {
+    // Old TV browsers often cannot reach the backend directly (TLS chain,
+    // mixed content, CORS). The board's own origin proxies the public API
+    // (src/lib/api-proxy.ts), so retry there on a network-level failure.
+    const networkFailure = error instanceof ApiError && error.status === 0;
+    if (!networkFailure || typeof window === "undefined") throw error;
+    try {
+      return await requestOnce<T>("", path, init);
+    } catch {
+      throw error;
+    }
   }
 }
 

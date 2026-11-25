@@ -1,5 +1,6 @@
 import "./lib/error-capture";
 
+import { proxyPublicApi } from "./lib/api-proxy";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -47,6 +48,10 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Same-origin proxy for the public API (see lib/api-proxy.ts).
+      const proxied = await proxyPublicApi(request);
+      if (proxied) return proxied;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
